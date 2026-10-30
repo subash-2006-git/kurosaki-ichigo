@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import contextlib
 from typing import TYPE_CHECKING
+
+from discord.ext import commands
 
 from features.moderation.db import ModerationDB
 from features.moderation.utils.guild_cache import GuildCache
@@ -35,4 +38,5 @@ async def setup(bot: Bot) -> None:
 
 async def teardown(bot: Bot) -> None:
     for name in COGS:
-        await bot.unload_extension(f"{__name__}.cogs.{name}")
+        with contextlib.suppress(commands.ExtensionNotLoaded):
+            await bot.unload_extension(f"{__name__}.cogs.{name}")

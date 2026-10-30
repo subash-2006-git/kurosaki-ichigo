@@ -22,6 +22,7 @@ log = logging.getLogger(__name__)
 EXTENSIONS: tuple[str, ...] = (
     "core.cogs.system",
     "features.moderation",
+    "features.logging",
 )
 
 # A feature that can surface errors in a guild (the logging feature's custom-logs channel)

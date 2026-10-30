@@ -189,7 +189,7 @@ Each step ends with the bot booting and the new feature checked in a test server
 - [x] Phase 0 — token, intents, test guild, Neon connectivity verified
 - [x] Phase 1 — core (config, pool, migrations, web, errors, /ping /status /sync)
 - [x] Phase 2 — moderation
-- [ ] Phase 3 — logging
+- [x] Phase 3 — logging
 - [ ] Phase 4 — music
 - [ ] Phase 5 — nickname
 - [ ] Phase 6 — community
