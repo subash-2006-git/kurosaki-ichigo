@@ -21,6 +21,7 @@ log = logging.getLogger(__name__)
 # Loaded in order. Features are appended here as they are merged in.
 EXTENSIONS: tuple[str, ...] = (
     "core.cogs.system",
+    "features.moderation",
 )
 
 # A feature that can surface errors in a guild (the logging feature's custom-logs channel)
