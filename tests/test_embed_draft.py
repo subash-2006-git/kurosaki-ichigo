@@ -1,7 +1,7 @@
 import unittest
 from types import SimpleNamespace
 
-from features.nickname.services.embed_draft import (
+from core.ui.embed_draft import (
     COLOUR_NAMES,
     DraftError,
     EmbedDraft,

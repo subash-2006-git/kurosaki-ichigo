@@ -15,12 +15,14 @@ from discord.ext import commands
 from core import config, errors, migrate
 from core.db import Database
 from core.interactions import CoreTree
+from core.ui.theme import ThemeStore
 
 log = logging.getLogger(__name__)
 
 # Loaded in order. Features are appended here as they are merged in.
 EXTENSIONS: tuple[str, ...] = (
     "core.cogs.system",
+    "core.panel",
     "features.moderation",
     "features.logging",
     "features.nickname",
@@ -67,6 +69,8 @@ class Bot(commands.Bot):
     async def setup_hook(self) -> None:
         await self.db.connect()
         await migrate.run(self.db)
+        self.theme = ThemeStore(self.db.pool)
+        await self.theme.load()
         self.tree.on_error = self.on_app_command_error
         for extension in EXTENSIONS:
             await self.load_extension(extension)
@@ -74,16 +78,27 @@ class Bot(commands.Bot):
         await self.sync_commands()
 
     async def sync_commands(self) -> None:
-        if config.DEV_GUILD_ID:
-            guild = discord.Object(id=config.DEV_GUILD_ID)
-            self.tree.copy_global_to(guild=guild)
-            synced = await self.tree.sync(guild=guild)
-            log.info("Synced %d commands to dev guild %s", len(synced), config.DEV_GUILD_ID)
-        elif config.SYNC_COMMANDS:
-            synced = await self.tree.sync()
-            log.info("Synced %d global commands", len(synced))
-        else:
-            log.info("Command sync skipped (set DEV_GUILD_ID or SYNC_COMMANDS=true)")
+        """Sync slash commands. A failed sync is logged, never fatal: the bot still starts with
+        whatever commands Discord already has (e.g. after it was removed from DEV_GUILD_ID)."""
+        try:
+            if config.DEV_GUILD_ID:
+                guild = discord.Object(id=config.DEV_GUILD_ID)
+                self.tree.copy_global_to(guild=guild)
+                synced = await self.tree.sync(guild=guild)
+                log.info("Synced %d commands to dev guild %s", len(synced), config.DEV_GUILD_ID)
+            elif config.SYNC_COMMANDS:
+                synced = await self.tree.sync()
+                log.info("Synced %d global commands", len(synced))
+            else:
+                log.info("Command sync skipped (set DEV_GUILD_ID or SYNC_COMMANDS=true)")
+        except discord.Forbidden:
+            log.error(
+                "Command sync failed: no access to DEV_GUILD_ID %s. Is the bot still in that server? "
+                "Fix DEV_GUILD_ID, or clear it and set SYNC_COMMANDS=true for global commands.",
+                config.DEV_GUILD_ID,
+            )
+        except discord.HTTPException as exc:
+            log.error("Command sync failed (%s); continuing with the commands Discord already has", exc)
 
     async def on_ready(self) -> None:
         log.info("Logged in as %s (%s) in %d guilds", self.user, self.user.id, len(self.guilds))

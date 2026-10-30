@@ -1,9 +1,9 @@
-"""An embed being built with /embed create, plus validation of what admins type."""
+"""An embed being edited (with /embed create, or a stored welcome/level-up message), plus validation of what admins type."""
 
 import re
-from collections.abc import Mapping
-from dataclasses import dataclass, field
-from typing import Protocol
+from collections.abc import Callable, Mapping
+from dataclasses import asdict, dataclass, field, fields, replace
+from typing import Any, Protocol
 
 import discord
 
@@ -168,6 +168,38 @@ class EmbedDraft:
         content = self.message_content()
         if content and len(content) > CONTENT_LIMIT:
             raise DraftError(f"The message above the embed is too long ({len(content)}/{CONTENT_LIMIT} characters).")
+
+    # --- storage and templating ----------------------------------------------
+
+    def to_dict(self) -> dict[str, Any]:
+        """JSON-safe form for storing in the database."""
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any] | None) -> "EmbedDraft":
+        """Rebuild a stored draft; unknown keys (from newer versions) are ignored."""
+        if not data:
+            return cls()
+        known = {f.name for f in fields(cls)}
+        values = {k: v for k, v in data.items() if k in known}
+        values["fields"] = [EmbedField(**f) for f in values.get("fields", [])]
+        return cls(**values)
+
+    def rendered(self, fill: Callable[[str], str]) -> "EmbedDraft":
+        """A copy with `fill` applied to every text and link (e.g. placeholders like {user})."""
+        def text(value: str | None) -> str | None:
+            return fill(value) if value else value
+
+        return replace(
+            self,
+            title=text(self.title), url=text(self.url), description=text(self.description),
+            author_name=text(self.author_name), author_icon=text(self.author_icon), author_url=text(self.author_url),
+            footer_text=text(self.footer_text), footer_icon=text(self.footer_icon),
+            image_url=text(self.image_url), thumbnail_url=text(self.thumbnail_url),
+            message=text(self.message),
+            fields=[EmbedField(fill(f.name), fill(f.value), f.inline) for f in self.fields],
+            mention_role_ids=list(self.mention_role_ids), mention_user_ids=list(self.mention_user_ids),
+        )
 
     def to_embed(self) -> discord.Embed:
         embed = discord.Embed(
