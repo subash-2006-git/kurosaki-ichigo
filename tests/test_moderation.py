@@ -1,12 +1,16 @@
-from datetime import timedelta
+import re
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import discord
 import pytest
 
 from features.moderation.cogs.antiraid import AntiRaid
+from features.moderation.case_buttons import HistoryButton, UndoButton, case_view, history_lines
 from features.moderation.cogs.automod import AutoMod
+from features.moderation.panel import _number
 from features.moderation.utils.guild_cache import DEFAULT_AUTOMOD, GuildCache, _merge
+from features.moderation.utils.modlog import appeal_view, case_embed
 from features.moderation.utils.time import humanize, parse_duration
 
 
@@ -130,3 +134,51 @@ async def test_leave_filter_only_matches_members_antiraid_kicked():
     cog._remember_kick(member)
     assert await cog.turns_away(member, leaving=True)
     assert not await cog.turns_away(member, leaving=True)  # used up
+
+
+# ---- restyled cases, case buttons, appeal button ----
+
+
+def case(action="ban", num=7, active=True, duration=None, reason="Spamming"):
+    return {"action": action, "case_num": num, "user_id": 42, "mod_id": 9, "reason": reason,
+            "duration_seconds": duration, "active": active, "created_at": datetime(2026, 10, 30, tzinfo=timezone.utc)}
+
+
+def test_case_embed_layout():
+    embed = case_embed(case("tempban", duration=3600))
+    assert embed.title == "⏱️ Temporary ban · Case #7"
+    assert [f.name for f in embed.fields] == ["User", "Moderator", "Duration", "Reason"]
+    assert embed.fields[3].value == ">>> Spamming" and embed.footer.text == "Case #7"
+    assert case_embed(case("warn", active=False)).footer.text.endswith("removed")
+    assert "Updated case #7" in case_embed(case(), title_prefix="Updated case").title
+
+
+def test_case_view_offers_undo_only_when_possible():
+    ids = lambda c, **k: [i.custom_id for i in case_view(c, **k).children]
+    assert ids(case("ban")) == ["case:history:42", "case:undo:7"]
+    assert ids(case("timeout")) == ["case:history:42", "case:undo:7"]
+    assert ids(case("kick")) == ["case:history:42"]
+    assert case_view(case("ban"), undone=True).children[1].item.disabled
+
+
+def test_case_button_ids_parse():
+    assert re.fullmatch(HistoryButton.__discord_ui_compiled_template__, "case:history:42")["user"] == "42"
+    assert re.fullmatch(UndoButton.__discord_ui_compiled_template__, "case:undo:7")["num"] == "7"
+
+
+def test_history_lines():
+    line = history_lines([case("warn", active=False)])[0]
+    assert line.startswith("`#7` ⚠️ **Warning** ~~removed~~") and "Spamming" in line
+
+
+def test_appeal_view_only_for_real_links():
+    assert appeal_view(None) is None and appeal_view("not a link") is None
+    assert appeal_view("https://forms.gle/x").children[0].url == "https://forms.gle/x"
+
+
+def test_panel_number_validation():
+    assert _number(" 5 ", "X", 1, 10) == 5
+    with pytest.raises(ValueError):
+        _number("11", "X", 1, 10)
+    with pytest.raises(ValueError):
+        _number("five", "X", 1, 10)

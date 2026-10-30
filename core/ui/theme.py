@@ -74,3 +74,17 @@ class ThemeStore:
         if theme.footer_text and not (embed.footer and embed.footer.text):
             embed.set_footer(text=theme.footer_text)
         return embed
+
+
+# The running bot's store, so helpers that only know the guild can theme an embed.
+_active: ThemeStore | None = None
+
+
+def activate(store: ThemeStore) -> None:
+    global _active
+    _active = store
+
+
+def brand(embed: discord.Embed, guild: discord.abc.Snowflake | int | None) -> discord.Embed:
+    """ThemeStore.brand() on the running bot's store; leaves the embed alone before startup (tests)."""
+    return _active.brand(embed, guild) if _active is not None else embed

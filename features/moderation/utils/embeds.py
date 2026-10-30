@@ -1,11 +1,16 @@
+"""Moderation's embeds, built on the bot's shared style (core.ui.style) and the server theme."""
+
 import discord
 
-SUCCESS = discord.Color.green()
-ERROR = discord.Color.red()
-INFO = discord.Color.blurple()
+from core.ui import style
+from core.ui.theme import brand
+
+SUCCESS = style.SUCCESS
+ERROR = style.ERROR
+INFO = None  # neutral: themed by brand()
 
 ACTION_COLORS = {
-    "warn": discord.Color.yellow(),
+    "warn": discord.Color(0xF0B232),
     "timeout": discord.Color.orange(),
     "untimeout": discord.Color.teal(),
     "kick": discord.Color.dark_orange(),
@@ -13,6 +18,28 @@ ACTION_COLORS = {
     "ban": discord.Color.red(),
     "tempban": discord.Color.red(),
     "unban": discord.Color.green(),
+}
+
+ACTION_ICONS = {
+    "warn": "⚠️",
+    "timeout": "⏳",
+    "untimeout": "✅",
+    "kick": "👢",
+    "softban": "🧹",
+    "ban": "🔨",
+    "tempban": "⏱️",
+    "unban": "🕊️",
+}
+
+ACTION_LABELS = {
+    "warn": "Warning",
+    "timeout": "Timeout",
+    "untimeout": "Timeout removed",
+    "kick": "Kick",
+    "softban": "Softban",
+    "ban": "Ban",
+    "tempban": "Temporary ban",
+    "unban": "Unban",
 }
 
 ACTION_PAST_TENSE = {
@@ -28,15 +55,16 @@ ACTION_PAST_TENSE = {
 
 
 def success(message: str) -> discord.Embed:
-    return discord.Embed(description=f"✅ {message}", color=SUCCESS)
+    return style.ok(message)
 
 
 def error(message: str) -> discord.Embed:
-    return discord.Embed(description=f"❌ {message}", color=ERROR)
+    return style.fail(message)
 
 
-def info(title: str, description: str | None = None) -> discord.Embed:
-    return discord.Embed(title=title, description=description, color=INFO)
+def info(title: str, description: str | None = None, guild: discord.abc.Snowflake | None = None) -> discord.Embed:
+    """A neutral embed in the server's theme colour (when `guild` is given)."""
+    return brand(style.info(title, description), guild)
 
 
 def truncate(text: str | None, limit: int = 1024) -> str:

@@ -59,7 +59,7 @@ class Config(commands.Cog):
         am, raid = s.automod, s.raid
         thresholds = await self.bot.mod_db.list_thresholds(interaction.guild_id)
 
-        embed = embeds.info(f"Configuration for {interaction.guild.name}")
+        embed = embeds.info(f"Configuration for {interaction.guild.name}", guild=interaction.guild)
         embed.add_field(name="Channels", value=(
             f"Mod-log: {_channel(s.modlog_channel_id)}\n"
             f"Reports: {_channel(s.report_channel_id)}\n"
@@ -216,7 +216,7 @@ class Config(commands.Cog):
     async def badword_list(self, interaction: discord.Interaction):
         words = await self.bot.mod_db.get_banned_words(interaction.guild_id)
         text = ", ".join(f"||{w}||" for w in words) or "No banned words."
-        await interaction.response.send_message(embed=embeds.info("Banned words", embeds.truncate(text, 4000)),
+        await interaction.response.send_message(embed=embeds.info("Banned words", embeds.truncate(text, 4000), interaction.guild),
                                                 ephemeral=True)
 
     # ---- link whitelist -----------------------------------------------
@@ -250,7 +250,7 @@ class Config(commands.Cog):
     async def whitelist_list(self, interaction: discord.Interaction):
         domains = await self.bot.mod_db.get_whitelist(interaction.guild_id)
         text = "\n".join(f"`{d}`" for d in domains) or "No whitelisted domains."
-        await interaction.response.send_message(embed=embeds.info("Link whitelist", embeds.truncate(text, 4000)),
+        await interaction.response.send_message(embed=embeds.info("Link whitelist", embeds.truncate(text, 4000), interaction.guild),
                                                 ephemeral=True)
 
     # ---- warn escalation ----------------------------------------------

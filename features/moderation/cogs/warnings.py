@@ -36,7 +36,7 @@ class Warnings(commands.Cog):
     async def warnings(self, interaction: discord.Interaction, user: discord.User):
         await interaction.response.defer()
         warns = await self.bot.mod_db.get_active_warns(interaction.guild_id, user.id)
-        embed = embeds.info(f"Warnings for {user}", None if warns else "No active warnings.")
+        embed = embeds.info(f"Warnings for {user}", None if warns else "No active warnings.", interaction.guild)
         embed.set_thumbnail(url=user.display_avatar.url)
         for w in warns[-25:]:
             embed.add_field(

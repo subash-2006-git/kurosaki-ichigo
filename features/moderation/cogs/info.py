@@ -14,7 +14,9 @@ class Info(commands.Cog):
     @app_commands.guild_only()
     async def userinfo(self, interaction: discord.Interaction, member: discord.Member | None = None):
         member = member or interaction.user
-        embed = discord.Embed(title=str(member), color=member.color if member.color.value else embeds.INFO)
+        embed = embeds.info(str(member), guild=interaction.guild)
+        if member.color.value:
+            embed.colour = member.color
         embed.set_thumbnail(url=member.display_avatar.url)
         embed.add_field(name="ID", value=f"`{member.id}`")
         embed.add_field(name="Nickname", value=member.nick or "None")
@@ -42,7 +44,7 @@ class Info(commands.Cog):
     @app_commands.guild_only()
     async def serverinfo(self, interaction: discord.Interaction):
         guild = interaction.guild
-        embed = discord.Embed(title=guild.name, color=embeds.INFO)
+        embed = embeds.info(guild.name, guild=guild)
         if guild.icon:
             embed.set_thumbnail(url=guild.icon.url)
         embed.add_field(name="ID", value=f"`{guild.id}`")
@@ -78,7 +80,7 @@ class Info(commands.Cog):
             removed = " ~~(removed)~~" if c["action"] == "warn" and not c["active"] else ""
             lines.append(f"**#{c['case_num']}** `{c['action']}`{removed} {discord.utils.format_dt(c['created_at'], 'd')}"
                          f" — {embeds.truncate(c['reason'], 80)}")
-        embed = embeds.info(f"Mod history for {user}", embeds.truncate("\n".join(lines) or "No cases.", 4000))
+        embed = embeds.info(f"Mod history for {user}", embeds.truncate("\n".join(lines) or "No cases.", 4000), interaction.guild)
         embed.set_thumbnail(url=user.display_avatar.url)
         embed.set_footer(text=f"Showing the latest {len(cases)} case(s)")
         await interaction.followup.send(embed=embed)

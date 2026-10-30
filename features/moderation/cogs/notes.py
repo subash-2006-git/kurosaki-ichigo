@@ -34,7 +34,7 @@ class Notes(commands.Cog):
     async def list_notes(self, interaction: discord.Interaction, user: discord.User):
         await interaction.response.defer(ephemeral=True)
         notes = await self.bot.mod_db.get_notes(interaction.guild_id, user.id)
-        embed = embeds.info(f"Notes for {user}", None if notes else "No notes.")
+        embed = embeds.info(f"Notes for {user}", None if notes else "No notes.", interaction.guild)
         for n in notes:
             embed.add_field(
                 name=f"#{n['id']} • {discord.utils.format_dt(n['created_at'], 'd')}",

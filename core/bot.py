@@ -15,6 +15,7 @@ from discord.ext import commands
 from core import config, errors, migrate
 from core.db import Database
 from core.interactions import CoreTree
+from core.ui import theme
 from core.ui.theme import ThemeStore
 
 log = logging.getLogger(__name__)
@@ -71,6 +72,7 @@ class Bot(commands.Bot):
         await migrate.run(self.db)
         self.theme = ThemeStore(self.db.pool)
         await self.theme.load()
+        theme.activate(self.theme)
         self.tree.on_error = self.on_app_command_error
         for extension in EXTENSIONS:
             await self.load_extension(extension)
