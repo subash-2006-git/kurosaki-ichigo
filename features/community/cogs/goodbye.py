@@ -34,6 +34,8 @@ class GoodbyeCog(commands.Cog):
         if self.bot.user is not None and member.id == self.bot.user.id:
             return
         try:
+            if await self.bot.member_turned_away(member, leaving=True):
+                return  # anti-raid kicked them; no goodbye card or DM per raider
             config = await self.bot.guild_config.get(guild.id)
             if config.goodbye_enabled:
                 await self._post_goodbye(member, config)

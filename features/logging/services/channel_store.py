@@ -75,6 +75,11 @@ class ChannelStore:
             f"forget {channel_id}",
         )
 
+    async def flush(self) -> None:
+        """Wait for background writes (call before the pool closes)."""
+        if self._pending:
+            await asyncio.gather(*self._pending, return_exceptions=True)
+
     def _background(self, coro, what: str) -> None:
         async def run() -> None:
             try:

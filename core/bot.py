@@ -32,6 +32,10 @@ EXTENSIONS: tuple[str, ...] = (
 ErrorReporter = Callable[[discord.Guild, str, BaseException], Awaitable[None]]
 # A feature can add one line to /status: (bot, guild_id) -> (field name, value) or None.
 StatusField = Callable[["Bot", int], "tuple[str, str] | None"]
+# A feature that removes members as they join (anti-raid) registers one of these, so greetings
+# and auto-renames skip them. Called as check(member, leaving=False) on join ("are you about to
+# remove them?") and check(member, leaving=True) on leave ("did you just remove them?").
+JoinFilter = Callable[..., Awaitable[bool]]
 
 
 def build_intents() -> discord.Intents:
@@ -58,6 +62,7 @@ class Bot(commands.Bot):
         self.db = Database(config.DATABASE_URL, ssl=config.DATABASE_SSL)
         self.error_reporters: list[ErrorReporter] = []
         self.status_fields: list[StatusField] = []
+        self.join_filters: list[JoinFilter] = []
 
     async def setup_hook(self) -> None:
         await self.db.connect()
@@ -101,6 +106,17 @@ class Bot(commands.Bot):
                 await reporter(guild, title, error)
             except Exception:
                 log.warning("Error reporter failed:\n%s", traceback.format_exc())
+
+    async def member_turned_away(self, member: discord.Member, *, leaving: bool = False) -> bool:
+        """True if a feature is removing (or, with leaving=True, just removed) this member, e.g. anti-raid,
+        so others shouldn't greet, rename or say goodbye to them."""
+        for check in self.join_filters:
+            try:
+                if await check(member, leaving=leaving):
+                    return True
+            except Exception:
+                log.exception("Join filter %r failed", check)
+        return False
 
     async def close(self) -> None:
         await super().close()

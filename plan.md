@@ -178,4 +178,4 @@ Each step ends with the bot booting and the new feature checked in a test server
 - [~] Phase 4 — music (skipped)
 - [x] Phase 5 — nickname
 - [x] Phase 6 — community
-- [ ] Phase 7 — legal review, README, deploy files, tests
+- [x] Phase 7 — README, render.yaml, .env.example, anti-raid join filter, final review

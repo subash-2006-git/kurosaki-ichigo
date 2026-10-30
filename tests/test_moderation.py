@@ -1,8 +1,10 @@
 from datetime import timedelta
 from types import SimpleNamespace
 
+import discord
 import pytest
 
+from features.moderation.cogs.antiraid import AntiRaid
 from features.moderation.cogs.automod import AutoMod
 from features.moderation.utils.guild_cache import DEFAULT_AUTOMOD, GuildCache, _merge
 from features.moderation.utils.time import humanize, parse_duration
@@ -78,3 +80,53 @@ async def test_mass_mentions():
     automod, s = AutoMod.__new__(AutoMod), await settings()
     assert automod.check_content(message("hi", mentions=range(6)), s) == "Mass mentions (6)"
     assert automod.check_content(message("hi", mentions=[1, 1, 1, 1, 1, 1]), s) is None
+
+
+# ---- anti-raid join filter (greetings and auto-renames skip members it kicks) ----
+
+
+class FakeConfigs:
+    def __init__(self, raidmode=False, min_age=0):
+        self.s = SimpleNamespace(raidmode_active=raidmode, raid={"min_account_age_days": min_age})
+
+    async def get(self, guild_id):
+        return self.s
+
+
+def join(age_days=100, bot=False, can_kick=True):
+    perms = SimpleNamespace(kick_members=can_kick)
+    guild = SimpleNamespace(id=1, me=SimpleNamespace(guild_permissions=perms))
+    created = discord.utils.utcnow() - timedelta(days=age_days)
+    return SimpleNamespace(id=5, bot=bot, guild=guild, created_at=created)
+
+
+def antiraid(**configs):
+    cog = AntiRaid.__new__(AntiRaid)
+    cog.bot = SimpleNamespace(mod_configs=FakeConfigs(**configs))
+    cog._kicked = {}
+    return cog
+
+
+async def test_join_filter_raid_mode():
+    assert await antiraid(raidmode=True).turns_away(join())
+    assert not await antiraid(raidmode=False).turns_away(join())
+
+
+async def test_join_filter_account_age():
+    assert await antiraid(min_age=7).turns_away(join(age_days=2))
+    assert not await antiraid(min_age=7).turns_away(join(age_days=30))
+
+
+async def test_join_filter_ignores_bots_and_missing_kick_permission():
+    assert not await antiraid(raidmode=True).turns_away(join(bot=True))
+    assert not await antiraid(raidmode=True).turns_away(join(can_kick=False))
+
+
+async def test_leave_filter_only_matches_members_antiraid_kicked():
+    cog = antiraid(raidmode=True)
+    member = join()
+    # A real member leaving during raid mode still gets a goodbye.
+    assert not await cog.turns_away(member, leaving=True)
+    cog._remember_kick(member)
+    assert await cog.turns_away(member, leaving=True)
+    assert not await cog.turns_away(member, leaving=True)  # used up

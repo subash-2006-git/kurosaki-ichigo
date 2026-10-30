@@ -36,3 +36,4 @@ async def teardown(bot: Bot) -> None:
         with contextlib.suppress(commands.ExtensionNotLoaded):
             await bot.unload_extension(f"{__name__}.cogs.{name}")
     await bot.log_router.close()
+    await bot.log_channels.flush()

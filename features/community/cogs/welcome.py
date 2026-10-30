@@ -31,7 +31,7 @@ class WelcomeCog(commands.Cog):
         guild = member.guild
         try:
             config = await self.bot.guild_config.get(guild.id)
-            if not config.welcome_enabled:
+            if not config.welcome_enabled or await self.bot.member_turned_away(member):
                 return
 
             channel, problem = resolve_channel(guild, config.welcome_channel_id)

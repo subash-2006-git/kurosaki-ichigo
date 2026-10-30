@@ -14,6 +14,8 @@ from features.moderation.utils.modlog import send_log
 
 log = logging.getLogger(__name__)
 
+KICK_MEMORY = 300  # seconds a kick decision is remembered for the leave event that follows
+
 
 class AntiRaid(commands.Cog):
     def __init__(self, bot):
@@ -21,6 +23,9 @@ class AntiRaid(commands.Cog):
         self.joins: dict[int, deque[tuple[float, int]]] = defaultdict(deque)
         self.activating: set[int] = set()
         self.raid_kicks: dict[int, int] = defaultdict(int)
+        # (guild_id, user_id) -> when on_member_join decided to kick them, so the leave that follows
+        # can be recognised (no goodbye card for raiders) without affecting members who leave on their own.
+        self._kicked: dict[tuple[int, int], float] = {}
 
     async def _alert(self, guild: discord.Guild, embed: discord.Embed, ping: bool = False) -> None:
         settings = await self.bot.mod_configs.get(guild.id)
@@ -61,6 +66,32 @@ class AntiRaid(commands.Cog):
         ))
         return unlocked
 
+    async def cog_load(self) -> None:
+        self.bot.join_filters.append(self.turns_away)
+
+    async def cog_unload(self) -> None:
+        if self.turns_away in self.bot.join_filters:
+            self.bot.join_filters.remove(self.turns_away)
+
+    async def turns_away(self, member: discord.Member, *, leaving: bool = False) -> bool:
+        """On join: whether on_member_join below kicks this member (raid mode, or account too new).
+        On leave: whether it just did."""
+        if leaving:
+            kicked_at = self._kicked.pop((member.guild.id, member.id), None)
+            return kicked_at is not None and time.monotonic() - kicked_at < KICK_MEMORY
+        if member.bot or not member.guild.me.guild_permissions.kick_members:
+            return False
+        s = await self.bot.mod_configs.get(member.guild.id)
+        min_age = s.raid["min_account_age_days"]
+        too_new = bool(min_age) and discord.utils.utcnow() - member.created_at < timedelta(days=min_age)
+        return s.raidmode_active or too_new
+
+    def _remember_kick(self, member: discord.Member) -> None:
+        now = time.monotonic()
+        for key in [k for k, at in self._kicked.items() if now - at >= KICK_MEMORY]:
+            del self._kicked[key]
+        self._kicked[(member.guild.id, member.id)] = now
+
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
         if member.bot:
@@ -71,6 +102,7 @@ class AntiRaid(commands.Cog):
         can_kick = guild.me.guild_permissions.kick_members
 
         if s.raidmode_active and can_kick:
+            self._remember_kick(member)
             try:
                 await member.send(f"**{guild.name}** is temporarily locked down. Please try joining again later.")
             except discord.HTTPException:
@@ -84,6 +116,7 @@ class AntiRaid(commands.Cog):
 
         min_age = raid["min_account_age_days"]
         if min_age and can_kick and discord.utils.utcnow() - member.created_at < timedelta(days=min_age):
+            self._remember_kick(member)
             try:
                 await kick(self.bot, guild, member, guild.me,
                            f"Account younger than {min_age} day(s) (anti-raid)")

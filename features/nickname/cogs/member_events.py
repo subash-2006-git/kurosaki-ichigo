@@ -24,6 +24,8 @@ class MemberEvents(commands.Cog):
         settings = await self.bot.nick_db.get_settings(guild.id)
         if not settings.renames_new_members or not settings.template:
             return
+        if await self.bot.member_turned_away(member):
+            return  # anti-raid is kicking them
         if problem := bot_permission_problem(guild):
             log.warning("Can't rename new member in guild %s: %s", guild.id, problem)
             return
