@@ -51,7 +51,10 @@ class GoodbyeCog(commands.Cog):
             log.warning("Goodbye not sent in guild %s: %s", guild.id, problem)
             return
         try:
-            message = await build_greeting(member, "goodbye", config, self.bot.media, self.bot.http_session)
+            message = await build_greeting(
+                member, "goodbye", config, self.bot.media, self.bot.http_session,
+                brand=lambda embed: self.bot.theme.brand(embed, member.guild),
+            )
             await channel.send(**message.send_kwargs())
             log.info("Said goodbye to %s in guild %s", member.id, guild.id)
         except discord.HTTPException as exc:

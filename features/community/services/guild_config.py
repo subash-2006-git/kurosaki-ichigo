@@ -46,6 +46,17 @@ class GuildConfig:
 
     level_role_mode: str
 
+    # Messages as embeds (migration 0007): stored EmbedDraft dicts (None = default), link buttons, style.
+    welcome_embed: dict | None = None
+    welcome_buttons: list = dataclasses.field(default_factory=list)
+    welcome_use_embed: bool = True
+    goodbye_embed: dict | None = None
+    goodbye_buttons: list = dataclasses.field(default_factory=list)
+    goodbye_use_embed: bool = True
+    levelup_embed: dict | None = None
+    levelup_buttons: list = dataclasses.field(default_factory=list)
+    levelup_use_embed: bool = True
+
     @classmethod
     def from_row(cls, row: Any) -> GuildConfig:
         return cls(**{field.name: getattr(row, field.name) for field in dataclasses.fields(cls)})

@@ -39,7 +39,10 @@ class WelcomeCog(commands.Cog):
                 log.warning("Welcome not sent in guild %s: %s", guild.id, problem)
                 return
 
-            message = await build_greeting(member, "welcome", config, self.bot.media, self.bot.http_session)
+            message = await build_greeting(
+                member, "welcome", config, self.bot.media, self.bot.http_session,
+                brand=lambda embed: self.bot.theme.brand(embed, member.guild),
+            )
             await channel.send(**message.send_kwargs())
             log.info("Welcomed %s in guild %s", member.id, guild.id)
         except discord.HTTPException as exc:

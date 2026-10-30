@@ -9,7 +9,9 @@ import aiohttp
 from discord.ext import commands
 
 from core.interactions import DEFER
+from features.community import panel
 from features.community.db import CommunityDB
+from features.community.level_buttons import LeaderboardButton, RankButton
 from features.community.services.guild_config import GuildConfigService
 from features.community.services.leveling import LevelingService
 from features.community.services.levelups import LevelUpService
@@ -35,7 +37,10 @@ async def setup(bot: Bot) -> None:
     bot.media = MediaStore(bot.community_db)
     bot.leveling = LevelingService(bot.community_db)
     bot.roles = RoleService(bot.community_db, bot.guild_config)
-    bot.levelups = LevelUpService(bot.guild_config, bot.roles)
+    bot.levelups = LevelUpService(bot.guild_config, bot.roles, brand=bot.theme.brand)
+    bot.add_dynamic_items(RankButton, LeaderboardButton)
+    for section in panel.SECTIONS:
+        bot.panel.register(section)
     bot.http_session = aiohttp.ClientSession(headers={"User-Agent": USER_AGENT})
     for name in COGS:
         await bot.load_extension(f"{__name__}.cogs.{name}")
@@ -49,5 +54,8 @@ async def teardown(bot: Bot) -> None:
     for name in COGS:
         with contextlib.suppress(commands.ExtensionNotLoaded):
             await bot.unload_extension(f"{__name__}.cogs.{name}")
+    bot.remove_dynamic_items(RankButton, LeaderboardButton)
+    for section in panel.SECTIONS:
+        bot.panel.unregister(section.key)
     if bot.http_session is not None:
         await bot.http_session.close()

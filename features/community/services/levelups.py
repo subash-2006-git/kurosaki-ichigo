@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 
 import discord
 
 from features.community.services.guild_config import GuildConfig, GuildConfigService
 from features.community.services.leveling import AwardResult
+from features.community.services.messages import fill, link_buttons, stored_draft
 from features.community.services.roles import RoleService
 from features.community.utils.checks import missing_send_permissions, resolve_channel
 from features.community.utils.placeholders import render
@@ -34,9 +36,15 @@ def announcement_channel(
 
 
 class LevelUpService:
-    def __init__(self, guild_config: GuildConfigService, roles: RoleService) -> None:
+    def __init__(
+        self,
+        guild_config: GuildConfigService,
+        roles: RoleService,
+        brand: Callable[[discord.Embed, discord.Guild], discord.Embed] | None = None,
+    ) -> None:
         self.guild_config = guild_config
         self.roles = roles
+        self.brand = brand  # gives embeds the server's theme colour and footer
 
     async def after_award(
         self, member: discord.Member, result: AwardResult, fallback_channel: Messageable | None = None
@@ -59,6 +67,19 @@ class LevelUpService:
             log.info("Level-up for %s in guild %s not announced: no channel", member.id, member.guild.id)
             return
         try:
-            await channel.send(render(config.levelup_text, member, level=level)[:MAX_CONTENT])
+            await channel.send(**self.message(member, level, config))
         except discord.HTTPException as exc:
             log.warning("Level-up announcement failed in guild %s: %s", member.guild.id, exc)
+
+    def message(self, member: discord.Member, level: int, config: GuildConfig) -> dict:
+        """send() kwargs for the announcement: an embed (or the plain text), plus rank/leaderboard and link buttons."""
+        from features.community.level_buttons import level_up_view
+
+        view = level_up_view(link_buttons(config, "levelup"))
+        if not config.levelup_use_embed:
+            return {"content": render(config.levelup_text, member, level=level)[:MAX_CONTENT], "view": view}
+        draft = fill(stored_draft(config, "levelup"), member, level=level)
+        embed = draft.to_embed()
+        if self.brand is not None:
+            self.brand(embed, member.guild)
+        return {"content": draft.message[:MAX_CONTENT] if draft.message else None, "embed": embed, "view": view}

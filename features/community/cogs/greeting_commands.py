@@ -292,8 +292,11 @@ class GreetingGroup(app_commands.Group):
         if problem:
             header += f" · ⚠️ {problem}"
 
-        message = await build_greeting(interaction.user, self.kind, config, self.bot.media, self.bot.http_session)
-        message.content = f"{header}\n{message.content}"[:MAX_CONTENT]
+        message = await build_greeting(
+            interaction.user, self.kind, config, self.bot.media, self.bot.http_session,
+            brand=lambda embed: self.bot.theme.brand(embed, interaction.guild),
+        )
+        message.content = "\n".join(part for part in (header, message.content) if part)[:MAX_CONTENT]
         await interaction.followup.send(**message.send_kwargs(), ephemeral=True)
 
         if self.kind == "goodbye" and config.goodbye_dm_enabled:

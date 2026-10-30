@@ -67,6 +67,7 @@ class FakeMember:
         self.api_calls = 0
         self.name = self.display_name = f"user{user_id}"
         self.mention = f"<@{user_id}>"
+        self.display_avatar = SimpleNamespace(url=f"https://cdn.example/avatars/{user_id}.png")
 
     async def add_roles(self, *roles, reason=None):
         self.api_calls += 1
@@ -264,8 +265,9 @@ class FakeChannel:
         allowed = self._can_send
         return SimpleNamespace(view_channel=allowed, send_messages=allowed, embed_links=allowed, attach_files=allowed)
 
-    async def send(self, content):
+    async def send(self, content=None, **kwargs):
         self.sent.append(content)
+        self.kwargs = kwargs
 
 
 @pytest.fixture
@@ -276,7 +278,20 @@ def levelups(config_service, roles):
 async def test_level_up_announced_in_fallback_channel(levelups, guild):
     channel = FakeChannel(guild)
     await levelups.after_award(FakeMember(guild), AwardResult(total_xp=400, old_level=1, new_level=2), channel)
+    # Default style: an embed (no text above it) with rank/leaderboard buttons.
+    assert channel.sent == [None]
+    embed = channel.kwargs["embed"]
+    assert embed.title == "🎉 Level up!" and "<@10> just reached **Level 2**" in embed.description
+    assert embed.thumbnail.url == "https://cdn.example/avatars/10.png"
+    assert [item.custom_id for item in channel.kwargs["view"].children] == ["lvl:rank", "lvl:board"]
+
+
+async def test_plain_text_level_up(levelups, guild, config_service):
+    await config_service.update(GUILD_ID, levelup_use_embed=False)
+    channel = FakeChannel(guild)
+    await levelups.after_award(FakeMember(guild), AwardResult(total_xp=400, old_level=1, new_level=2), channel)
     assert channel.sent == ["🎉 <@10> reached **Level 2**!"]
+    assert "embed" not in channel.kwargs
 
 
 async def test_no_announcement_without_level_up_or_when_disabled(levelups, guild, config_service):
@@ -301,7 +316,7 @@ async def test_unusable_channels_are_skipped(levelups, guild, config_service):
 
 
 async def test_custom_text_and_roles_after_level_up(levelups, guild, config_service, roles):
-    await config_service.update(GUILD_ID, levelup_text="GG {username}, level {level} in {server}!")
+    await config_service.update(GUILD_ID, levelup_text="GG {username}, level {level} in {server}!", levelup_use_embed=False)
     await roles.set_milestone(GUILD_ID, 2, guild.add_role("L2").id)
     channel, member = FakeChannel(guild), FakeMember(guild)
     await levelups.after_award(member, AwardResult(total_xp=400, old_level=1, new_level=2), channel)
@@ -313,7 +328,7 @@ async def test_failed_announcement_still_syncs_roles(levelups, guild, roles):
     await roles.set_milestone(GUILD_ID, 2, guild.add_role("L2").id)
 
     class Broken(FakeChannel):
-        async def send(self, content):
+        async def send(self, content=None, **kwargs):
             raise discord.HTTPException(SimpleNamespace(status=500, reason="boom"), "boom")
 
     member = FakeMember(guild)

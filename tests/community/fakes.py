@@ -15,6 +15,8 @@ def png_bytes(colour=(240, 160, 60)) -> bytes:
 
 
 class FakeAsset:
+    url = "https://cdn.example/avatar.png"
+
     def __init__(self, data: bytes | None) -> None:
         self._data = data
 

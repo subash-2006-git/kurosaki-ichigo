@@ -26,6 +26,9 @@ GUILD_SETTINGS_COLUMNS = frozenset(
         "voice_xp_amount", "voice_xp_interval", "voice_require_others", "voice_min_session",
         "voice_ignore_muted", "voice_ignore_deafened",
         "level_role_mode",
+        "welcome_embed", "welcome_buttons", "welcome_use_embed",
+        "goodbye_embed", "goodbye_buttons", "goodbye_use_embed",
+        "levelup_embed", "levelup_buttons", "levelup_use_embed",
     }
 )
 

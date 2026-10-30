@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 
 import discord
 from discord.utils import escape_markdown
@@ -15,6 +16,8 @@ PLACEHOLDERS = {
     "{server}": "The server name",
     "{membercount}": "Member count, e.g. 1,284",
     "{membercount_ordinal}": "Member count as an ordinal, e.g. 1,284th",
+    "{avatar}": "Link to their avatar (for embed images)",
+    "{server_icon}": "Link to the server icon (for embed images)",
 }
 LEVEL_PLACEHOLDERS = {"{level}": "The level just reached (level-up text only)"}
 
@@ -34,21 +37,26 @@ def member_count(guild: discord.Guild) -> int:
 
 
 def render(template: str, member: discord.Member, *, level: int | None = None) -> str:
-    """Replace known {tokens}; unknown ones are left as typed."""
-    count = member_count(member.guild)
-    values = {
-        "user": member.mention,
-        "username": escape_markdown(member.name),
-        "displayname": escape_markdown(member.display_name),
-        "user_id": str(member.id),
-        "server": escape_markdown(member.guild.name),
-        "membercount": f"{count:,}",
-        "membercount_ordinal": ordinal(count),
+    """Replace known {tokens}; unknown ones are left as typed. Values are only computed when used."""
+    values: dict[str, Callable[[], str]] = {
+        "user": lambda: member.mention,
+        "username": lambda: escape_markdown(member.name),
+        "displayname": lambda: escape_markdown(member.display_name),
+        "user_id": lambda: str(member.id),
+        "server": lambda: escape_markdown(member.guild.name),
+        "membercount": lambda: f"{member_count(member.guild):,}",
+        "membercount_ordinal": lambda: ordinal(member_count(member.guild)),
+        "avatar": lambda: member.display_avatar.url,
+        "server_icon": lambda: member.guild.icon.url if member.guild.icon else "",
     }
     if level is not None:
-        values["level"] = str(level)
+        values["level"] = lambda: str(level)
 
-    return _TOKEN.sub(lambda match: values.get(match.group(1), match.group(0)), template)
+    def replace(match: re.Match[str]) -> str:
+        value = values.get(match.group(1))
+        return value() if value is not None else match.group(0)
+
+    return _TOKEN.sub(replace, template)
 
 
 def help_text(*, include_level: bool = False) -> str:
