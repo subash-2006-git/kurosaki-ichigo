@@ -1,0 +1,106 @@
+"""The single Bot subclass every feature runs inside."""
+
+from __future__ import annotations
+
+import logging
+import sys
+import time
+import traceback
+from collections.abc import Awaitable, Callable
+
+import discord
+from discord import app_commands
+from discord.ext import commands
+
+from core import config, errors, migrate
+from core.db import Database
+from core.interactions import CoreTree
+
+log = logging.getLogger(__name__)
+
+# Loaded in order. Features are appended here as they are merged in.
+EXTENSIONS: tuple[str, ...] = (
+    "core.cogs.system",
+)
+
+# A feature that can surface errors in a guild (the logging feature's custom-logs channel)
+# registers one of these; core calls them for unexpected command and event errors.
+ErrorReporter = Callable[[discord.Guild, str, BaseException], Awaitable[None]]
+
+
+def build_intents() -> discord.Intents:
+    intents = discord.Intents.default()
+    intents.members = True          # joins/leaves, role sync, anti-raid, nickname jobs
+    intents.presences = True        # online counter in server stats
+    intents.message_content = True  # automod, message edit/delete logs
+    return intents
+
+
+class Bot(commands.Bot):
+    def __init__(self) -> None:
+        super().__init__(
+            command_prefix=commands.when_mentioned,
+            intents=build_intents(),
+            help_command=None,
+            tree_cls=CoreTree,
+            allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=True),
+        )
+        self.started_at = time.monotonic()
+        self.db = Database(config.DATABASE_URL, ssl=config.DATABASE_SSL)
+        self.error_reporters: list[ErrorReporter] = []
+        # Set by a feature (the music yt-dlp updater) that needs the process restarted; main exits with code 3.
+        self.restart_requested = False
+
+    async def setup_hook(self) -> None:
+        await self.db.connect()
+        await migrate.run(self.db)
+        self.tree.on_error = self.on_app_command_error
+        for extension in EXTENSIONS:
+            await self.load_extension(extension)
+            log.info("Loaded %s", extension)
+        await self.sync_commands()
+
+    async def sync_commands(self) -> None:
+        if config.DEV_GUILD_ID:
+            guild = discord.Object(id=config.DEV_GUILD_ID)
+            self.tree.copy_global_to(guild=guild)
+            synced = await self.tree.sync(guild=guild)
+            log.info("Synced %d commands to dev guild %s", len(synced), config.DEV_GUILD_ID)
+        elif config.SYNC_COMMANDS:
+            synced = await self.tree.sync()
+            log.info("Synced %d global commands", len(synced))
+        else:
+            log.info("Command sync skipped (set DEV_GUILD_ID or SYNC_COMMANDS=true)")
+
+    async def on_ready(self) -> None:
+        log.info("Logged in as %s (%s) in %d guilds", self.user, self.user.id, len(self.guilds))
+
+    async def on_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+        await errors.on_app_command_error(self, interaction, error)
+
+    async def on_error(self, event: str, *args, **kwargs) -> None:
+        log.exception("Unhandled error in event %s", event)
+        guild = next((g for g in (_guild_of(a) for a in args) if g is not None), None)
+        exc = sys.exc_info()[1]
+        if guild is not None and exc is not None:
+            await self.report_error(guild, f"Event error in {event}", exc)
+
+    async def report_error(self, guild: discord.Guild | None, title: str, error: BaseException) -> None:
+        if guild is None:
+            return
+        for reporter in self.error_reporters:
+            try:
+                await reporter(guild, title, error)
+            except Exception:
+                log.warning("Error reporter failed:\n%s", traceback.format_exc())
+
+    async def close(self) -> None:
+        await super().close()
+        await self.db.close()
+
+
+def _guild_of(obj: object) -> discord.Guild | None:
+    if isinstance(obj, discord.Guild):
+        return obj
+    guild = getattr(obj, "guild", None)
+    return guild if isinstance(guild, discord.Guild) else None
