@@ -49,14 +49,6 @@ STATS_RECONCILE_INTERVAL = _int("STATS_RECONCILE_INTERVAL", 600)
 # ---- nickname feature -----------------------------------------------------
 RENAME_DELAY_SECONDS = _float("RENAME_DELAY_SECONDS", 1.0)
 
-# ---- music feature --------------------------------------------------------
-DEFAULT_VOLUME = _int("DEFAULT_VOLUME", 50)
-IDLE_TIMEOUT = _int("IDLE_TIMEOUT", 300)
-ALONE_TIMEOUT = _int("ALONE_TIMEOUT", 60)
-MAX_QUEUE = _int("MAX_QUEUE", 200)
-YTDL_COOKIES_FILE = _str("YTDL_COOKIES_FILE")
-AUTO_UPDATE = _bool("AUTO_UPDATE")
-
 
 def missing_required() -> list[str]:
     return [name for name, value in (("DISCORD_TOKEN", DISCORD_TOKEN), ("DATABASE_URL", DATABASE_URL)) if not value]

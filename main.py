@@ -1,7 +1,6 @@
 """Entry point: logging -> web server -> bot.
 
-Exit codes: 0 normal stop, 1 bad configuration or login, 3 a feature asked for a restart
-(start.sh / the host starts the process again).
+Exit codes: 0 normal stop, 1 bad configuration or login.
 """
 
 from __future__ import annotations
@@ -21,7 +20,6 @@ from core.logging_setup import setup_logging
 
 log = logging.getLogger("main")
 
-RESTART_EXIT_CODE = 3
 LOGIN_CHECK_URL = "https://discord.com/api/v10/users/@me"
 BACKOFF_START = 60
 BACKOFF_MAX = 900
@@ -82,7 +80,7 @@ async def run() -> int:
         return 1
     finally:
         await runner.cleanup()
-    return RESTART_EXIT_CODE if bot.restart_requested else 0
+    return 0
 
 
 def main() -> None:

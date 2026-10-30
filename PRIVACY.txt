@@ -37,8 +37,6 @@ The bot stores only what its features need, keyed by Discord server (guild) ID a
     saved to the database; recent messages are held only in memory and lost on restart.
   - Presence (online/offline) and member counts: used for server statistics counters.
   - Voice activity: used for voice XP and voice logs; voice audio is never recorded.
-  - Music requests: song searches are sent to YouTube via yt-dlp to play audio; queues exist only
-    in memory.
 
 Server logs (joins, leaves, edits, deletions, role and channel changes, etc.) are posted as
 messages in channels inside the server itself. The bot does not keep its own copy.

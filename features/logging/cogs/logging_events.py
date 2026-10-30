@@ -847,8 +847,6 @@ class LoggingEvents(commands.Cog):
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState) -> None:
-        if self.bot.user is not None and member.id == self.bot.user.id:
-            return  # the bot's own music joins/leaves would flood voice-logs
         guild = member.guild
         if before.channel != after.channel:
             # Track even when logging is off, so durations are right once it's enabled.

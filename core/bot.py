@@ -50,8 +50,6 @@ class Bot(commands.Bot):
         self.started_at = time.monotonic()
         self.db = Database(config.DATABASE_URL, ssl=config.DATABASE_SSL)
         self.error_reporters: list[ErrorReporter] = []
-        # Set by a feature (the music yt-dlp updater) that needs the process restarted; main exits with code 3.
-        self.restart_requested = False
 
     async def setup_hook(self) -> None:
         await self.db.connect()

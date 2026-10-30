@@ -6,7 +6,7 @@ agree to these terms.
 
 1. THE SERVICE
 The bot provides moderation, server logging, statistics counters, leveling, welcome/goodbye
-messages, nickname management, an embed builder and music playback in Discord servers. It is
+messages, nickname management and an embed builder in Discord servers. It is
 provided free of charge, "as is", without any guarantee of availability or uptime. Features may
 change or be removed at any time.
 
@@ -19,29 +19,25 @@ change or be removed at any time.
   - Do not use the bot to harass people, spam, evade bans, or break any law.
   - Do not try to disrupt, overload or exploit the bot.
 
-3. MUSIC
-Music playback streams publicly available audio for personal listening in voice channels. You are
-responsible for what you request. The bot does not host or redistribute audio files.
-
-4. AUTOMATED ACTIONS
+3. AUTOMATED ACTIONS
 Automod, anti-raid, warning escalation and bulk nickname changes act automatically based on each
 server's settings. The operator is not responsible for actions taken because of a server's
 configuration, and server staff should review automated actions.
 
-5. TERMINATION
+4. TERMINATION
 The operator may stop providing the bot, or block its use in any server or by any user, at any
 time and without notice, especially for abuse of these terms. You can stop using the bot at any
 time by removing it from your server.
 
-6. LIABILITY
+5. LIABILITY
 To the maximum extent allowed by law, the operator is not liable for any loss or damage arising
 from use of the bot, including lost data, wrongful moderation actions, or downtime.
 
-7. PRIVACY
+6. PRIVACY
 How data is handled is described in PRIVACY.txt.
 
-8. CHANGES
+7. CHANGES
 These terms may be updated. Continued use after an update means you accept the new terms.
 
-9. CONTACT
+8. CONTACT
 [add contact email]
