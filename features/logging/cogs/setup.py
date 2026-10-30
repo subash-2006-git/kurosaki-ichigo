@@ -11,7 +11,8 @@ from discord import app_commands
 from discord.ext import commands
 
 from features.logging import settings as config
-from features.logging.cogs.stats import compute_stats, find_counters, find_stats_category
+from features.logging.cogs.stats import compute_stats
+from features.logging.services.channel_store import LOG_CATEGORY, STATS_CATEGORY, log_key, stat_key
 from features.logging.services.log_router import add_field, make_embed
 
 if TYPE_CHECKING:
@@ -105,6 +106,15 @@ class Setup(commands.GroupCog, group_name="setup", group_description="Set up the
         member = interaction.user
         return isinstance(member, discord.Member) and member.guild_permissions.administrator
 
+    async def _save(self, guild: discord.Guild, saved: dict[str, int], report: SetupReport) -> None:
+        try:
+            await self.bot.log_channels.save(guild.id, saved)
+        except Exception:
+            log.exception("Saving logging channel IDs failed for guild %s", guild.id)
+            report.warnings.append(
+                "Couldn't save the channel IDs, so renaming these channels may stop them working. Run this again later."
+            )
+
     # --- /setup logs -----------------------------------------------------------
 
     @app_commands.command(name="logs", description="Create the 📂 LOGGING category and its 14 log channels.")
@@ -152,7 +162,8 @@ class Setup(commands.GroupCog, group_name="setup", group_description="Set up the
                 view_channel=True, read_message_history=True, send_messages=False, add_reactions=False
             )
 
-        category = discord.utils.get(guild.categories, name=config.LOG_CATEGORY_NAME)
+        store = self.bot.log_channels
+        category = store.log_category(guild)
         if category is None:
             try:
                 category = await guild.create_category(
@@ -167,9 +178,11 @@ class Setup(commands.GroupCog, group_name="setup", group_description="Set up the
             report.reused.append(f"📂 **{category.name}** (category)")
             await _apply_overwrites(category, overwrites, report)
 
+        saved = {LOG_CATEGORY: category.id}
         for key, (name, topic) in config.LOG_CHANNELS.items():
-            existing = next((c for c in category.text_channels if config.log_channel_matches(c.name, key)), None)
+            existing = store.log_channel(guild, key)
             if existing is not None:
+                saved[log_key(key)] = existing.id
                 report.reused.append(existing.mention)
                 perms = existing.permissions_for(me)
                 if not (perms.view_channel and perms.send_messages and perms.embed_links):
@@ -178,10 +191,12 @@ class Setup(commands.GroupCog, group_name="setup", group_description="Set up the
             try:
                 # No explicit overwrites: the channel syncs with the category's permissions.
                 channel = await category.create_text_channel(name, topic=topic, reason="Logger setup")
+                saved[log_key(key)] = channel.id
                 report.created.append(channel.mention)
             except discord.HTTPException as exc:
                 report.failed.append(f"`{name}`: {_error_text(exc)}")
 
+        await self._save(guild, saved, report)
         self.bot.log_router.invalidate(guild.id)
         access = f"administrators and {staff_role.mention}" if staff_role else "administrators only"
         embed = report.to_embed("📂 Logging Setup Complete" if not report.failed else "📂 Logging Setup Finished With Errors")
@@ -214,7 +229,8 @@ class Setup(commands.GroupCog, group_name="setup", group_description="Set up the
             me: discord.PermissionOverwrite(view_channel=True, connect=True, manage_channels=True),
         }
 
-        category = find_stats_category(guild)
+        store = self.bot.log_channels
+        category = store.stats_category(guild)
         if category is None:
             try:
                 category = await guild.create_category(
@@ -233,17 +249,21 @@ class Setup(commands.GroupCog, group_name="setup", group_description="Set up the
             await _apply_overwrites(category, overwrites, report)
 
         values = compute_stats(guild)
-        existing = find_counters(guild)
+        existing = store.counters(guild)
+        saved = {STATS_CATEGORY: category.id}
         for key in config.STATS_COUNTERS:
             if key in existing:
+                saved[stat_key(key)] = existing[key].id
                 report.reused.append(existing[key].mention)
                 continue
             name = config.stats_channel_name(key, values[key])
             try:
                 channel = await category.create_voice_channel(name, reason="Logger stats setup")
+                saved[stat_key(key)] = channel.id
                 report.created.append(channel.mention)
             except discord.HTTPException as exc:
                 report.failed.append(f"`{name}`: {_error_text(exc)}")
+        await self._save(guild, saved, report)
 
         if not guild.chunked:
             report.warnings.append("Member list is still loading; counts will correct themselves shortly.")

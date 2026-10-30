@@ -93,14 +93,13 @@ class _LogItem:
 
 
 class LogRouter:
-    """Resolves log channels by name (no database) and delivers embeds sequentially."""
+    """Resolves log channels (via ChannelStore) and delivers embeds sequentially."""
 
     MAX_ATTEMPTS = 3
 
     def __init__(self, bot: LoggerBot) -> None:
         self.bot = bot
         self._queue: asyncio.Queue[_LogItem] = asyncio.Queue(maxsize=5000)
-        self._channel_cache: dict[tuple[int, str], int] = {}
         self._warned: set[tuple[int, str]] = set()
         self._worker: asyncio.Task[None] | None = None
 
@@ -118,40 +117,20 @@ class LogRouter:
             except asyncio.CancelledError:
                 pass
 
-    # --- channel resolution ----------------------------------------------------
-
-    @staticmethod
-    def find_category(guild: discord.Guild) -> discord.CategoryChannel | None:
-        return discord.utils.get(guild.categories, name=config.LOG_CATEGORY_NAME)
+    # --- channel resolution (by stored ID; see ChannelStore) -------------------
 
     def is_enabled(self, guild: discord.Guild | None) -> bool:
-        """Whether logging has been set up in this guild (the logging category exists)."""
-        return guild is not None and self.find_category(guild) is not None
+        """Whether logging has been set up in this guild (its logging category exists)."""
+        return guild is not None and self.bot.log_channels.log_category(guild) is not None
 
     def is_log_channel(self, channel: object) -> bool:
-        category = getattr(channel, "category", None)
-        return category is not None and category.name == config.LOG_CATEGORY_NAME
+        return self.bot.log_channels.is_log_channel(channel)
 
     def resolve(self, guild: discord.Guild, key: str) -> discord.TextChannel | None:
-        cached_id = self._channel_cache.get((guild.id, key))
-        if cached_id is not None:
-            channel = guild.get_channel(cached_id)
-            if isinstance(channel, discord.TextChannel) and self.is_log_channel(channel):
-                return channel
-            self._channel_cache.pop((guild.id, key), None)
-
-        category = self.find_category(guild)
-        if category is None:
-            return None
-        for channel in category.text_channels:
-            if config.log_channel_matches(channel.name, key):
-                self._channel_cache[(guild.id, key)] = channel.id
-                return channel
-        return None
+        return self.bot.log_channels.log_channel(guild, key)
 
     def invalidate(self, guild_id: int) -> None:
-        for cache_key in [k for k in self._channel_cache if k[0] == guild_id]:
-            del self._channel_cache[cache_key]
+        """Re-warn about unwritable channels after /setup fixes things."""
         self._warned = {w for w in self._warned if w[0] != guild_id}
 
     # --- delivery --------------------------------------------------------------
@@ -196,8 +175,8 @@ class LogRouter:
                 self._report_unwritable(guild, item.key, channel)
                 return
             except discord.NotFound:
-                # Channel was deleted between resolve and send; re-resolve on the next attempt.
-                self._channel_cache.pop((guild.id, item.key), None)
+                # Channel was deleted between resolve and send; forget it and re-resolve next attempt.
+                self.bot.log_channels.forget_channel(guild.id, channel.id)
             except discord.HTTPException as exc:
                 if exc.status < 500:
                     log.warning("Discord rejected %s log in %s: %s", item.key, guild.id, exc)

@@ -37,23 +37,6 @@ def compute_stats(guild: discord.Guild) -> dict[str, int]:
     }
 
 
-def find_stats_category(guild: discord.Guild) -> discord.CategoryChannel | None:
-    return discord.utils.get(guild.categories, name=config.STATS_CATEGORY_NAME)
-
-
-def find_counters(guild: discord.Guild) -> dict[str, discord.VoiceChannel]:
-    category = find_stats_category(guild)
-    if category is None:
-        return {}
-    found: dict[str, discord.VoiceChannel] = {}
-    for key in config.STATS_COUNTERS:
-        for channel in category.voice_channels:
-            if config.stats_channel_matches(channel.name, key):
-                found[key] = channel
-                break
-    return found
-
-
 class Stats(commands.Cog):
     def __init__(self, bot: LoggerBot) -> None:
         self.bot = bot
@@ -112,7 +95,7 @@ class Stats(commands.Cog):
 
     async def refresh(self, guild: discord.Guild) -> bool:
         """Start renames for counters whose value changed. Returns False if some must wait."""
-        counters = find_counters(guild)
+        counters = self.bot.log_channels.counters(guild)
         if not counters:
             return True
         values = compute_stats(guild)

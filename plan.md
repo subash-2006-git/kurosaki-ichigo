@@ -62,7 +62,7 @@ Why asyncpg instead of SQLAlchemy: mod-bot is already asyncpg, and nickname has 
 | `moderation` | `guild_config`, `cases`, `warn_thresholds`, `scheduled_actions`, `notes`, `banned_words`, `link_whitelist`, `reports` (mod-bot) |
 | `nickname` | `guild_settings`, `original_nicknames`, `jobs`, `change_log` (nickname-bot) |
 
-Logging and music have no tables.
+Music has no tables. Logging has one, `logging.channels`, which stores its category and channel IDs (added after Phase 3) so admins can rename or move them.
 
 **Migrations:** plain SQL files applied at startup inside a transaction holding an advisory lock, so two instances during a Render deploy can't both run them. This replaces general-bot's Alembic setup and mod-bot's run-`schema.sql`-every-boot approach.
 

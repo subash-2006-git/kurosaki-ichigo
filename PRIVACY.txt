@@ -22,6 +22,10 @@ The bot stores only what its features need, keyed by Discord server (guild) ID a
     - Welcome/goodbye/level-up settings, message templates, level-role rules, and any background
       image a server admin uploads for welcome/goodbye cards.
 
+  Server logging
+    - The IDs of the logging and server-stats categories and channels created with /setup, so
+      they keep working if an admin renames or moves them.
+
   Nicknames
     - Nickname settings per server (mode, template, excluded roles/members).
     - Each member's original nickname before the bot changed it, so it can be restored.

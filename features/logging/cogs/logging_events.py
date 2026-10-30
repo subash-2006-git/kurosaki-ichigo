@@ -761,7 +761,9 @@ class LoggingEvents(commands.Cog):
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
         if self.router.is_log_channel(channel) or isinstance(channel, discord.CategoryChannel):
             self.router.invalidate(channel.guild.id)
-        if not self.enabled(channel.guild):
+        enabled = self.enabled(channel.guild)  # checked before forgetting, so deleting a log channel is still logged
+        self.bot.log_channels.forget_channel(channel.guild.id, channel.id)
+        if not enabled:
             return
         entry = await self.audit.find(channel.guild, A.channel_delete, channel.id)
         embed = make_embed("channel", "📁 Channel Deleted", colour=discord.Colour.red())
@@ -780,8 +782,7 @@ class LoggingEvents(commands.Cog):
         if not lines and not overwrite_lines:
             return  # position-only changes
         is_stats_rename = (
-            after.category is not None
-            and after.category.name == config.STATS_CATEGORY_NAME
+            self.bot.log_channels.is_counter(after)
             and not overwrite_lines
             and all(line.startswith("**Name:**") for line in lines)
         )
