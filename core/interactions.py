@@ -39,7 +39,7 @@ def _extra(command: app_commands.Command | app_commands.Group, key: str, default
     while node is not None:
         if key in node.extras:
             return node.extras[key]
-        node = node.parent
+        node = getattr(node, "parent", None)  # context menus have no parent
     return default
 
 

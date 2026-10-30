@@ -177,5 +177,5 @@ Each step ends with the bot booting and the new feature checked in a test server
 - [x] Phase 3 — logging
 - [~] Phase 4 — music (skipped)
 - [x] Phase 5 — nickname
-- [ ] Phase 6 — community
+- [x] Phase 6 — community
 - [ ] Phase 7 — legal review, README, deploy files, tests

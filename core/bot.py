@@ -24,6 +24,7 @@ EXTENSIONS: tuple[str, ...] = (
     "features.moderation",
     "features.logging",
     "features.nickname",
+    "features.community",
 )
 
 # A feature that can surface errors in a guild (the logging feature's custom-logs channel)
@@ -43,6 +44,9 @@ def build_intents() -> discord.Intents:
 
 class Bot(commands.Bot):
     def __init__(self) -> None:
+        # The bot never joins voice (voice XP and voice logs only read voice states), so skip the audio-library warnings.
+        discord.VoiceClient.warn_nacl = False
+        discord.VoiceClient.warn_dave = False
         super().__init__(
             command_prefix=commands.when_mentioned,
             intents=build_intents(),
