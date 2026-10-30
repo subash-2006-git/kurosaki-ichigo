@@ -114,6 +114,14 @@ class System(commands.Cog):
             voice_connections=len(self.bot.voice_clients),
             version=commit[:7] if commit else None,
         )
+        for field in self.bot.status_fields:
+            try:
+                extra = field(self.bot, interaction.guild_id)
+            except Exception:
+                log.exception("Status field %r failed", field)
+                continue
+            if extra is not None:
+                embed.add_field(name=extra[0], value=extra[1])
         await reply(interaction, embed=embed, ephemeral=True)
 
     @app_commands.command(name="sync", description="Bot owner only: re-sync slash commands with Discord.")

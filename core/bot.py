@@ -23,11 +23,14 @@ EXTENSIONS: tuple[str, ...] = (
     "core.cogs.system",
     "features.moderation",
     "features.logging",
+    "features.nickname",
 )
 
 # A feature that can surface errors in a guild (the logging feature's custom-logs channel)
 # registers one of these; core calls them for unexpected command and event errors.
 ErrorReporter = Callable[[discord.Guild, str, BaseException], Awaitable[None]]
+# A feature can add one line to /status: (bot, guild_id) -> (field name, value) or None.
+StatusField = Callable[["Bot", int], "tuple[str, str] | None"]
 
 
 def build_intents() -> discord.Intents:
@@ -50,6 +53,7 @@ class Bot(commands.Bot):
         self.started_at = time.monotonic()
         self.db = Database(config.DATABASE_URL, ssl=config.DATABASE_SSL)
         self.error_reporters: list[ErrorReporter] = []
+        self.status_fields: list[StatusField] = []
 
     async def setup_hook(self) -> None:
         await self.db.connect()
