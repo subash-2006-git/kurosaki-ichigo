@@ -15,7 +15,7 @@ from discord.ext import commands
 
 from features.logging import settings as config
 from features.logging.services.audit_handler import audit_actions, changed_keys, safe_changes, safe_target
-from features.logging.services.log_router import UNAVAILABLE, LogFile, add_field, format_duration, make_embed, truncate
+from features.logging.services.log_router import UNAVAILABLE, LogFile, add_field, format_duration, make_embed, show_user, truncate
 
 if TYPE_CHECKING:
     from core.bot import Bot as LoggerBot
@@ -240,8 +240,9 @@ class LoggingEvents(commands.Cog):
     def enabled(self, guild: discord.Guild | None) -> bool:
         return self.router.is_enabled(guild)
 
-    def send(self, guild: discord.Guild, key: str, embed: discord.Embed, files: list[LogFile] | None = None) -> None:
-        self.router.send(guild, key, embed, files)
+    def send(self, guild: discord.Guild, key: str, embed: discord.Embed, files: list[LogFile] | None = None,
+             *, links: list[tuple[str, str]] | None = None) -> None:
+        self.router.send(guild, key, embed, files, links=links)
 
     def actor_field(
         self, embed: discord.Embed, guild: discord.Guild, entry: discord.AuditLogEntry | None, name: str = "By", **kwargs: Any
@@ -482,7 +483,7 @@ class LoggingEvents(commands.Cog):
     async def _log_nickname(self, before: discord.Member, after: discord.Member) -> None:
         guild = after.guild
         entry = await self.audit.find(guild, A.member_update, after.id, predicate=lambda e: "nick" in changed_keys(e))
-        embed = make_embed("nickname", "🏷️ Nickname Changed")
+        embed = show_user(make_embed("nickname", "🏷️ Nickname Changed"), after)
         add_field(embed, "Member", user_text(after))
         add_field(embed, "Before", fmt(before.nick), inline=True)
         add_field(embed, "After", fmt(after.nick), inline=True)
@@ -499,7 +500,7 @@ class LoggingEvents(commands.Cog):
         if not added and not removed:
             return
         entry = await self.audit.find(guild, A.member_role_update, after.id)
-        embed = make_embed("role", "🔐 Member Roles Updated")
+        embed = show_user(make_embed("role", "🔐 Member Roles Updated"), after)
         add_field(embed, "Member", user_text(after))
         if added:
             add_field(embed, "➕ Added", " ".join(r.mention for r in added))
@@ -514,11 +515,11 @@ class LoggingEvents(commands.Cog):
             guild, A.member_update, after.id, predicate=lambda e: "timed_out_until" in changed_keys(e)
         )
         if after.timed_out_until is not None:
-            embed = make_embed("moderation", "⏳ Member Timed Out")
+            embed = show_user(make_embed("moderation", "⏳ Member Timed Out"), after)
             add_field(embed, "Member", user_text(after))
             add_field(embed, "Until", time_text(after.timed_out_until))
         else:
-            embed = make_embed("moderation", "✅ Timeout Removed", colour=discord.Colour.green())
+            embed = show_user(make_embed("moderation", "✅ Timeout Removed", colour=discord.Colour.green()), after)
             add_field(embed, "Member", user_text(after))
         self.actor_field(embed, guild, entry, "Moderator")
         self.send(guild, "moderation", embed)
@@ -580,7 +581,7 @@ class LoggingEvents(commands.Cog):
         removed = [a for a in before.attachments if a not in after.attachments]
         if before.content == after.content and not removed:
             return  # e.g. an embed preview loading
-        embed = make_embed("message", "✏️ Message Edited")
+        embed = show_user(make_embed("message", "✏️ Message Edited"), after.author)
         add_field(embed, "Author", user_text(after.author), inline=True)
         add_field(embed, "Channel", channel_text(after.channel), inline=True)
         if before.content != after.content:
@@ -588,8 +589,7 @@ class LoggingEvents(commands.Cog):
             add_field(embed, "After", after.content or "*(no text)*")
         if removed:
             add_field(embed, "📎 Attachments removed", join_lines(f"`{a.filename}`" for a in removed))
-        add_field(embed, "Message", f"[Jump to message]({after.jump_url})", inline=True)
-        self.send(after.guild, "message", embed)  # type: ignore[arg-type]
+        self.send(after.guild, "message", embed, links=[("Jump to message", after.jump_url)])  # type: ignore[arg-type]
 
     @commands.Cog.listener()
     async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent) -> None:
@@ -605,14 +605,13 @@ class LoggingEvents(commands.Cog):
         assert guild is not None
         channel = guild.get_channel_or_thread(payload.channel_id)
         author = guild.get_member(int(author_data["id"])) if author_data.get("id") else None
-        embed = make_embed("message", "✏️ Message Edited")
+        embed = show_user(make_embed("message", "✏️ Message Edited"), author)
         add_field(embed, "Author", user_text(author) if author else f"`{author_data.get('username', 'Unknown')}`", inline=True)
         add_field(embed, "Channel", channel_text(channel) if channel else f"`{payload.channel_id}`", inline=True)
         add_field(embed, "Before", "*Unavailable — the original message wasn't in the bot's cache*")
         add_field(embed, "After", payload.data.get("content") or "*(no text)*")
         jump = f"https://discord.com/channels/{guild.id}/{payload.channel_id}/{payload.message_id}"
-        add_field(embed, "Message", f"[Jump to message]({jump})", inline=True)
-        self.send(guild, "message", embed)
+        self.send(guild, "message", embed, links=[("Jump to message", jump)])
 
     @commands.Cog.listener()
     async def on_raw_message_delete(self, payload: discord.RawMessageDeleteEvent) -> None:
@@ -631,6 +630,8 @@ class LoggingEvents(commands.Cog):
                 return
 
         embed = make_embed("message", "🗑️ Message Deleted", colour=discord.Colour.red())
+        if message is not None:
+            show_user(embed, message.author)
         add_field(embed, "Channel", channel_text(channel) if channel else f"`{payload.channel_id}`", inline=True)
         if message is None:
             add_field(embed, "Author", UNAVAILABLE, inline=True)

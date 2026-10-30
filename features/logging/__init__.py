@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from discord.ext import commands
 
+from features.logging import panel
 from features.logging.services.audit_handler import AuditHandler
 from features.logging.services.channel_store import ChannelStore
 from features.logging.services.log_router import LogRouter
@@ -27,11 +28,13 @@ async def setup(bot: Bot) -> None:
     bot.log_router = LogRouter(bot)
     bot.audit = AuditHandler(bot)
     bot.log_router.start()
+    bot.panel.register(panel.SECTION)
     for name in COGS:
         await bot.load_extension(f"{__name__}.cogs.{name}")
 
 
 async def teardown(bot: Bot) -> None:
+    bot.panel.unregister(panel.SECTION.key)
     for name in COGS:
         with contextlib.suppress(commands.ExtensionNotLoaded):
             await bot.unload_extension(f"{__name__}.cogs.{name}")

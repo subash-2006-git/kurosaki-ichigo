@@ -1,10 +1,19 @@
 from datetime import timedelta
+from types import SimpleNamespace
 
 import discord
 
 from features.logging import settings
 from features.logging.cogs.lifecycle import traceback_tail
-from features.logging.services.log_router import UNAVAILABLE, add_field, format_duration, make_embed, truncate
+from features.logging.services.log_router import (
+    UNAVAILABLE,
+    add_field,
+    format_duration,
+    link_view,
+    make_embed,
+    show_user,
+    truncate,
+)
 
 
 def test_log_channel_matching_tolerates_emoji_changes():
@@ -66,3 +75,12 @@ def test_traceback_tail_names_the_failing_function():
         tail = traceback_tail(exc)
     assert "in boom" in tail
     assert traceback_tail(None) == "unknown"
+
+
+def test_link_view_and_show_user():
+    assert link_view([]) is None
+    view = link_view([("Jump to message", "https://discord.com/channels/1/2/3")])
+    assert view.children[0].label == "Jump to message" and view.children[0].url.endswith("/3")
+    embed = show_user(discord.Embed(), SimpleNamespace(id=5, display_avatar=SimpleNamespace(url="https://cdn/a.png")))
+    assert embed.author.icon_url == "https://cdn/a.png" and "(5)" in embed.author.name
+    assert show_user(discord.Embed(), None).author.name is None

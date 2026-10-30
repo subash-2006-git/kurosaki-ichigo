@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 import discord
 
+from core.ui.theme import brand
 from features.logging import settings as config
 
 if TYPE_CHECKING:
@@ -73,6 +74,22 @@ def add_field(embed: discord.Embed, name: str, value: object, *, inline: bool = 
     embed.add_field(name=truncate(name, 256), value=truncate(text, 1024), inline=inline)
 
 
+def link_view(links: list[tuple[str, str]]) -> discord.ui.View | None:
+    if not links:
+        return None
+    view = discord.ui.View(timeout=None)
+    for label, url in links[:5]:
+        view.add_item(discord.ui.Button(label=label, url=url))
+    return view
+
+
+def show_user(embed: discord.Embed, user: discord.abc.User | None) -> discord.Embed:
+    """Put the member's name and avatar at the top of a log entry."""
+    if user is not None:
+        embed.set_author(name=f"{user} ({user.id})", icon_url=user.display_avatar.url)
+    return embed
+
+
 @dataclass
 class LogFile:
     """A file attachment stored as bytes so it can be re-sent on retry."""
@@ -90,6 +107,7 @@ class _LogItem:
     key: str
     embed: discord.Embed
     files: list[LogFile] = field(default_factory=list)
+    links: list[tuple[str, str]] = field(default_factory=list)  # (label, url) link buttons
 
 
 class LogRouter:
@@ -135,13 +153,14 @@ class LogRouter:
 
     # --- delivery --------------------------------------------------------------
 
-    def send(self, guild: discord.Guild, key: str, embed: discord.Embed, files: list[LogFile] | None = None) -> None:
-        """Queue a log entry. Never blocks and never raises."""
+    def send(self, guild: discord.Guild, key: str, embed: discord.Embed, files: list[LogFile] | None = None,
+             *, links: list[tuple[str, str]] | None = None) -> None:
+        """Queue a log entry (optionally with link buttons such as "Jump to message"). Never blocks and never raises."""
         if key not in config.LOG_CHANNELS:
             log.error("Unknown log channel key %r", key)
             return
         try:
-            self._queue.put_nowait(_LogItem(guild.id, key, embed, files or []))
+            self._queue.put_nowait(_LogItem(guild.id, key, embed, files or [], links or []))
         except asyncio.QueueFull:
             log.warning("Log queue full; dropping %s log for guild %s", key, guild.id)
 
@@ -159,6 +178,7 @@ class LogRouter:
         guild = self.bot.get_guild(item.guild_id)
         if guild is None:
             return
+        brand(item.embed, guild)
 
         for attempt in range(1, self.MAX_ATTEMPTS + 1):
             channel = self.resolve(guild, item.key)
@@ -168,6 +188,7 @@ class LogRouter:
                 await channel.send(
                     embed=item.embed,
                     files=[f.to_discord() for f in item.files],
+                    view=link_view(item.links) or discord.utils.MISSING,
                     allowed_mentions=discord.AllowedMentions.none(),
                 )
                 return
