@@ -1,4 +1,4 @@
-"""One HTTP server: health for Render/uptime pingers, plus the legal pages the Developer Portal links to."""
+"""One HTTP server so the host and uptime pingers can see the bot is alive."""
 
 from __future__ import annotations
 
@@ -8,8 +8,6 @@ import time
 from typing import TYPE_CHECKING
 
 from aiohttp import web
-
-from core import config, legal
 
 if TYPE_CHECKING:
     from core.bot import Bot
@@ -35,24 +33,13 @@ async def start(bot: Bot, port: int) -> web.AppRunner:
             status=200 if ready else 503,
         )
 
-    privacy_html = legal.privacy_page()
-    terms_html = legal.terms_page()
-
-    async def privacy(_request: web.Request) -> web.Response:
-        return web.Response(text=privacy_html, content_type="text/html")
-
-    async def terms(_request: web.Request) -> web.Response:
-        return web.Response(text=terms_html, content_type="text/html")
-
     async def index(_request: web.Request) -> web.Response:
-        return web.Response(text=f"{config.BOT_NAME or 'Bot'} is running. See /health, /privacy, /terms.")
+        return web.Response(text="Bot is running. See /health.")
 
     app = web.Application()
     # add_get also answers HEAD, which some uptime pingers use.
     app.router.add_get("/", index)
     app.router.add_get("/health", health)
-    app.router.add_get("/privacy", privacy)
-    app.router.add_get("/terms", terms)
 
     runner = web.AppRunner(app, access_log=None)
     await runner.setup()

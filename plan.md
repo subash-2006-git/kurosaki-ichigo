@@ -24,8 +24,7 @@ kurosaki-ichigo/
     config.py                # every env var in one place
     db.py                    # one asyncpg pool for every feature
     migrate.py               # runs migrations/*.sql in order, tracked in core.schema_migrations
-    web.py                   # one aiohttp server: / /health /privacy /terms
-    legal.py                 # combined privacy policy and terms of service
+    web.py                   # one aiohttp server: / /health
     errors.py                # one app-command error handler + bot on_error
     interactions.py          # reply()/defer() helpers (from general-bot)
     logging_setup.py
@@ -129,17 +128,16 @@ That is about 50 top-level commands, under Discord's limit of 100.
   - It stays on in Docker.
   - The cost is a short outage of every feature, roughly weekly.
 
-## 6. Web server, legal pages, and deploy
+## 6. Web server, legal text, and deploy
 
 - **Web server:** one aiohttp server on `$PORT`.
   - `/health` returns 200 only when the gateway is ready. It does **not** query the DB, because uptime pingers would keep Neon awake 24/7; `/status` does the DB check.
   - It reports guilds, latency, uptime, and voice connections.
-- **Legal pages:** `/privacy` and `/terms` are rewritten to cover every feature honestly:
+- **Legal text:** no web routes. `PRIVACY.txt` and `TERMS.txt` in the repo root cover every feature:
   - message content is read (automod, logs)
   - XP log retention is 30 days
-  - DB is Neon, host is Render
+  - DB is Neon
   - nickname data is deleted on guild removal
-  - bot name comes from `BOT_NAME`; nothing is hard-coded
 - **Deploy:**
   - **Docker** is required by music: `python:3.11.9-slim` + ffmpeg + deno.
   - `start.sh` upgrades yt-dlp, then runs `python main.py`. Exit code 3 means restart.
@@ -157,8 +155,6 @@ That is about 50 top-level commands, under Discord's limit of 100.
 | `LOG_LEVEL` | `INFO` | core |
 | `DEV_GUILD_ID` | — | core |
 | `SYNC_COMMANDS` | `false` | core |
-| `BOT_NAME` | — | core (legal pages) |
-| `CONTACT_EMAIL` | — | core (legal pages) |
 | `STATS_UPDATE_INTERVAL` | 30 | logging |
 | `STATS_RECONCILE_INTERVAL` | 600 | logging |
 | `RENAME_DELAY_SECONDS` | 1.0 | nickname |
@@ -181,7 +177,7 @@ Each step ends with the bot booting and the new feature checked in a test server
 4. **Music:** copy the code, move the updater hook into core `main.py`, add the Dockerfile.
 5. **Nickname:** rewrite `database.py` on the shared pool (async), and update `Job.from_row`.
 6. **Community:** rewrite the SQLAlchemy repositories as asyncpg SQL, switch to opt-in defer, copy the fonts.
-7. **Finish:** legal pages, README, `.env.example`, `render.yaml`, and the pure-logic tests ported. The tests cover cards, the leveling math, the nickname planner, embed_draft, and time parsing.
+7. **Finish:** review PRIVACY.txt/TERMS.txt, README, `.env.example`, `render.yaml`, and the pure-logic tests ported. The tests cover cards, the leveling math, the nickname planner, embed_draft, and time parsing.
 
 ## 9. Decisions (2026-10-30)
 
@@ -197,4 +193,4 @@ Each step ends with the bot booting and the new feature checked in a test server
 - [ ] Phase 4 — music
 - [ ] Phase 5 — nickname
 - [ ] Phase 6 — community
-- [ ] Phase 7 — legal, README, deploy files, tests
+- [ ] Phase 7 — legal review, README, deploy files, tests

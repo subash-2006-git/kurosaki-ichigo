@@ -41,8 +41,6 @@ PORT = _int("PORT", 8080)
 LOG_LEVEL = _str("LOG_LEVEL", "INFO").upper()
 DEV_GUILD_ID = _int("DEV_GUILD_ID")
 SYNC_COMMANDS = _bool("SYNC_COMMANDS")
-BOT_NAME = _str("BOT_NAME")
-CONTACT_EMAIL = _str("CONTACT_EMAIL")
 
 # ---- logging feature ------------------------------------------------------
 STATS_UPDATE_INTERVAL = _int("STATS_UPDATE_INTERVAL", 30)

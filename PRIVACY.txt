@@ -1,0 +1,69 @@
+PRIVACY POLICY — Kurosaki Ichigo (Discord bot)
+Effective date: October 30, 2026
+
+This policy explains what data the Kurosaki Ichigo Discord bot ("the bot") collects, why, where it
+is kept, and how to have it removed.
+
+1. WHAT THE BOT STORES
+The bot stores only what its features need, keyed by Discord server (guild) ID and user ID.
+
+  Moderation
+    - Server moderation settings: log/report/alert channels, appeal link, automod and anti-raid
+      settings, banned words, allowed link domains, warning escalation rules.
+    - Moderation cases: user ID, moderator ID, action (warn, timeout, kick, ban, ...), reason,
+      duration, time.
+    - Staff notes about a user (written by server staff), with author ID and time.
+    - Reports: reporter ID, reported user ID, reason, link to the reported message, status.
+    - Scheduled actions: pending unbans and temporary-role removals.
+
+  Leveling, welcome and goodbye
+    - XP totals and level per member, and the member's last known display name (for leaderboards).
+    - An XP history log (source, amount, time), deleted automatically after 30 days.
+    - Welcome/goodbye/level-up settings, message templates, level-role rules, and any background
+      image a server admin uploads for welcome/goodbye cards.
+
+  Nicknames
+    - Nickname settings per server (mode, template, excluded roles/members).
+    - Each member's original nickname before the bot changed it, so it can be restored.
+    - A history of nickname changes and bulk-rename jobs.
+
+2. WHAT THE BOT READS BUT DOES NOT STORE
+  - Message content: read to apply automod rules (banned words, invite links, spam, mass mentions)
+    and to post message edit/delete logs in the server's own log channels. Message content is not
+    saved to the database; recent messages are held only in memory and lost on restart.
+  - Presence (online/offline) and member counts: used for server statistics counters.
+  - Voice activity: used for voice XP and voice logs; voice audio is never recorded.
+  - Music requests: song searches are sent to YouTube via yt-dlp to play audio; queues exist only
+    in memory.
+
+Server logs (joins, leaves, edits, deletions, role and channel changes, etc.) are posted as
+messages in channels inside the server itself. The bot does not keep its own copy.
+
+3. WHERE DATA IS KEPT
+  - Database: Neon (managed PostgreSQL), United States (AWS us-west-2).
+  - Hosting: the bot's host provider.
+  - Discord itself, for anything the bot posts in a server.
+Data is not sold, shared with advertisers, or used to train AI models.
+
+4. HOW LONG DATA IS KEPT
+  - XP history: 30 days.
+  - Nickname data: deleted automatically when the bot is removed from the server.
+  - Other data (moderation cases, notes, levels, settings): kept until a server admin deletes it
+    with the bot's commands, or until a deletion request (section 5) is handled, so it survives the
+    bot being re-invited.
+
+5. YOUR CHOICES
+  - Server admins can reset XP, remove warnings, delete notes and change or clear settings with the
+    bot's commands.
+  - Anyone may request access to, or deletion of, data about them by contacting the operator at
+    the address below. Moderation records may be retained where a server needs them to enforce its
+    rules.
+
+6. CHILDREN
+The bot is for Discord users, who must meet Discord's minimum age requirement.
+
+7. CHANGES
+Changes to this policy will be published in this file with a new effective date.
+
+8. CONTACT
+[add contact email]
