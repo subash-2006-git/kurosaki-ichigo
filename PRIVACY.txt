@@ -19,8 +19,13 @@ The bot stores only what its features need, keyed by Discord server (guild) ID a
   Leveling, welcome and goodbye
     - XP totals and level per member, and the member's last known display name (for leaderboards).
     - An XP history log (source, amount, time), deleted automatically after 30 days.
-    - Welcome/goodbye/level-up settings, message templates, level-role rules, and any background
-      image a server admin uploads for welcome/goodbye cards.
+    - Welcome/goodbye/level-up settings, message templates and embed designs (including any link
+      buttons and image links an admin adds), level-role rules, and any background image a server
+      admin uploads for welcome/goodbye cards.
+
+  Appearance and control panel
+    - The server's chosen theme colour and footer text, and where its control panel message is
+      posted (channel and message ID).
 
   Server logging
     - The IDs of the logging and server-stats categories and channels created with /setup, so

@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 import discord
 from discord import app_commands
 
+from core.ui.theme import brand
 from features.community.services.greeting import MAX_CONTENT, build_greeting, greeting_settings, render_card
 from features.community.services.guild_config import GuildConfig
 from features.community.services.media import (
@@ -72,7 +73,7 @@ def settings_embed(guild: discord.Guild, config: GuildConfig, kind: Kind, backgr
     if kind == "goodbye":
         footer += " · Kicks and bans count as leaving too"
     embed.set_footer(text=footer)
-    return embed
+    return brand(embed, guild)
 
 
 def text_modal(*, title: str, current: str, on_save) -> TemplateModal:

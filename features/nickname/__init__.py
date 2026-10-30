@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from discord.ext import commands
 
+from features.nickname import panel
 from features.nickname.db import NicknameDB
 from features.nickname.services.job_manager import JobManager
 
@@ -25,11 +26,13 @@ async def setup(bot: Bot) -> None:
         log.info("Marked %d nickname job(s) interrupted by the last shutdown", interrupted)
     bot.nick_jobs = JobManager(bot)
     bot.status_fields.append(_status_field)
+    bot.panel.register(panel.SECTION)
     for name in COGS:
         await bot.load_extension(f"{__name__}.cogs.{name}")
 
 
 async def teardown(bot: Bot) -> None:
+    bot.panel.unregister(panel.SECTION.key)
     for name in COGS:
         with contextlib.suppress(commands.ExtensionNotLoaded):
             await bot.unload_extension(f"{__name__}.cogs.{name}")

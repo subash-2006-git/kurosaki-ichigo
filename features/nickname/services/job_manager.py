@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 import discord
 
 from core import config
+from core.ui.theme import brand
 from features.nickname.services.nickname_planner import PLANNERS, Decision
 
 if TYPE_CHECKING:
@@ -213,7 +214,7 @@ class JobManager:
         if not isinstance(channel, discord.abc.Messageable):
             return
         try:
-            await channel.send(embed=job_embed(job))
+            await channel.send(embed=brand(job_embed(job), job.guild_id))
         except discord.HTTPException:
             log.warning("Could not post the report for job #%s in channel %s", job.id, job.channel_id)
 

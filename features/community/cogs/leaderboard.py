@@ -12,6 +12,7 @@ from discord.ext import commands
 from discord.utils import escape_markdown
 
 from core.bot import Bot as CommunityBot
+from core.ui.theme import brand
 from features.community.services.leveling import LeaderboardEntry
 from core.interactions import EPHEMERAL, defer, reply
 
@@ -97,7 +98,7 @@ class LeaderboardCog(commands.Cog):
             page = pages - 1
             entries, total = await self.bot.leveling.leaderboard(guild.id, page, PER_PAGE)
 
-        embed = discord.Embed(title=f"🏆 {guild.name} leaderboard", colour=discord.Colour.gold())
+        embed = discord.Embed(title=f"🏆 {guild.name} leaderboard")
         if entries:
             embed.description = "\n".join(leaderboard_lines(entries, lambda entry: display_name(guild, entry)))
         else:
@@ -110,7 +111,7 @@ class LeaderboardCog(commands.Cog):
         embed.set_footer(text=footer)
         if guild.icon:
             embed.set_thumbnail(url=guild.icon.url)
-        return embed, pages
+        return brand(embed, guild), pages
 
     @app_commands.command(name="leaderboard", description="Show the server's XP leaderboard.", extras={EPHEMERAL: False})
     @app_commands.describe(page="Page to start on")

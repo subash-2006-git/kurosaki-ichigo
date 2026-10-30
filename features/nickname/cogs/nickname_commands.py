@@ -6,6 +6,7 @@ from discord import app_commands
 from discord.ext import commands
 from discord.utils import escape_markdown
 
+from core.ui.theme import brand
 from features.nickname.db import GuildSettings
 from features.nickname.services.job_manager import format_counter, job_embed
 from features.nickname.services.nickname_planner import PLANNERS, Decision, account_name
@@ -66,7 +67,7 @@ def describe_change(member: discord.Member, decision: Decision) -> str:
     return f"{old} → **{new}**"
 
 
-def plan_embed(title: str, changes: list[Change], skipped: Counter) -> discord.Embed:
+def plan_embed(title: str, changes: list[Change], skipped: Counter, guild: discord.Guild | None = None) -> discord.Embed:
     embed = discord.Embed(title=title, colour=discord.Colour.blurple())
     embed.add_field(name="Will change", value=f"{len(changes)} members")
     embed.add_field(name="Will skip", value=f"{sum(skipped.values())} members")
@@ -76,7 +77,7 @@ def plan_embed(title: str, changes: list[Change], skipped: Counter) -> discord.E
             lines.append(f"…and {len(changes) - PREVIEW_EXAMPLES} more")
         embed.add_field(name="Examples", value="\n".join(lines)[:1024], inline=False)
     embed.add_field(name="Skip reasons", value=format_counter(skipped), inline=False)
-    return embed
+    return brand(embed, guild)
 
 
 def settings_embed(guild: discord.Guild, settings: GuildSettings) -> discord.Embed:
@@ -94,7 +95,7 @@ def settings_embed(guild: discord.Guild, settings: GuildSettings) -> discord.Emb
     embed.add_field(name="Excluded members", value=", ".join(members)[:1024] or "None", inline=False)
     if problem := bot_permission_problem(guild):
         embed.add_field(name="⚠ Problem", value=problem, inline=False)
-    return embed
+    return brand(embed, guild)
 
 
 @app_commands.guild_only()
@@ -222,7 +223,7 @@ class NicknameCommands(commands.GroupCog, group_name="nick", group_description="
             return
         await interaction.response.defer(ephemeral=True, thinking=True)
         changes, skipped = await self._build_plan(interaction.guild, "apply")
-        embed = plan_embed(f"Preview: {settings.template}", changes, skipped)
+        embed = plan_embed(f"Preview: {settings.template}", changes, skipped, interaction.guild)
         await interaction.followup.send(embed=embed, ephemeral=True)
 
     async def _confirm_and_start(self, interaction: discord.Interaction, kind: str) -> None:
@@ -234,7 +235,7 @@ class NicknameCommands(commands.GroupCog, group_name="nick", group_description="
         changes, skipped = await self._build_plan(interaction.guild, kind)
         if not changes:
             await interaction.followup.send(
-                embed=plan_embed("Nothing to change", changes, skipped), ephemeral=True
+                embed=plan_embed("Nothing to change", changes, skipped, interaction.guild), ephemeral=True
             )
             return
 
@@ -242,7 +243,7 @@ class NicknameCommands(commands.GroupCog, group_name="nick", group_description="
         view = ConfirmView(interaction.user.id, f"{verb} {len(changes)} members")
         message = await interaction.followup.send(
             content="Review the changes below. They're applied gradually and can be stopped with `/nick stop`.",
-            embed=plan_embed(f"Confirm {verb.lower()}", changes, skipped),
+            embed=plan_embed(f"Confirm {verb.lower()}", changes, skipped, interaction.guild),
             view=view,
             ephemeral=True,
             wait=True,
@@ -288,7 +289,7 @@ class NicknameCommands(commands.GroupCog, group_name="nick", group_description="
         if job is None:
             await interaction.response.send_message("No bulk jobs have run in this server yet.", ephemeral=True)
             return
-        await interaction.response.send_message(embed=job_embed(job), ephemeral=True)
+        await interaction.response.send_message(embed=brand(job_embed(job), interaction.guild), ephemeral=True)
 
     @app_commands.command(name="stop", description="Stop the running bulk job after the current member")
     async def stop(self, interaction: discord.Interaction):

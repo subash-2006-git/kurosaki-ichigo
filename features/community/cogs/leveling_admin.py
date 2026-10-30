@@ -9,6 +9,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from core.bot import Bot as CommunityBot
+from core.ui.theme import brand
 from features.community.models import RoleMode
 from features.community.repositories import LevelRoleRepo
 from features.community.services.guild_config import GuildConfig
@@ -477,7 +478,7 @@ def settings_embed(guild: discord.Guild, config: GuildConfig, milestones: list[M
     roles = f"{len(milestones)} milestone(s), {mode}" if milestones else "None"
     embed.add_field(name="Level roles", value=f"{roles}\n-# Details: /leveling role list", inline=False)
     embed.set_footer(text="Level n needs 100 × n² total XP (level 10 = 10,000 XP)")
-    return embed
+    return brand(embed, guild)
 
 
 def role_list_embed(guild: discord.Guild, milestones: list[Milestone], mode: str) -> discord.Embed:
@@ -497,7 +498,7 @@ def role_list_embed(guild: discord.Guild, milestones: list[Milestone], mode: str
     embed.description = "\n".join(lines) if lines else "No level roles yet. Add one with `/leveling role add`."
     mode_text = "highest only" if mode == RoleMode.HIGHEST.value else "keep all reached roles"
     embed.set_footer(text=f"Mode: {mode_text} · Change with /leveling role mode")
-    return embed
+    return brand(embed, guild)
 
 
 async def setup(bot: CommunityBot) -> None:

@@ -122,6 +122,7 @@ class System(commands.Cog):
                 continue
             if extra is not None:
                 embed.add_field(name=extra[0], value=extra[1])
+        self.bot.theme.brand(embed, interaction.guild)
         await reply(interaction, embed=embed, ephemeral=True)
 
     @app_commands.command(name="sync", description="Bot owner only: re-sync slash commands with Discord.")
