@@ -31,6 +31,12 @@ The bot stores only what its features need, keyed by Discord server (guild) ID a
     - The IDs of the logging and server-stats categories and channels created with /setup, so
       they keep working if an admin renames or moves them.
 
+  Tickets
+    - Ticket settings per server (staff roles, channels, the ticket message).
+    - Each ticket: number, channel, who opened, claimed and closed it, the reason given, and times.
+    - Ticket messages themselves are not stored by the bot; when a ticket closes, a transcript file
+      is posted to the server's chosen transcripts channel and sent to the member who opened it.
+
   Nicknames
     - Nickname settings per server (mode, template, excluded roles/members).
     - Each member's original nickname before the bot changed it, so it can be restored.
@@ -48,8 +54,8 @@ messages in channels inside the server itself. The bot does not keep its own cop
 
 3. WHERE DATA IS KEPT
   - Database: Neon (managed PostgreSQL), United States (AWS us-west-2).
-  - Backups: an encrypted daily copy of the database, kept for 30 days as a private-key-protected
-    file in the bot's GitHub repository (readable only with the operator's passphrase).
+  - Backups: an encrypted daily copy of the database, kept for 30 days in the bot's GitHub
+    repository (readable only with the operator's passphrase).
   - Hosting: the bot's host provider.
   - Discord itself, for anything the bot posts in a server.
 Data is not sold, shared with advertisers, or used to train AI models.

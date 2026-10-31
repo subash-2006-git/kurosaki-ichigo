@@ -17,6 +17,7 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 |---|---|
 | 👋 Welcome & Goodbye | on/off, channel, embed or plain text, image card, card background (upload or link), link buttons, goodbye DM, **Edit message** (embed editor with live preview), **Preview** |
 | 📈 Leveling | on/off, level-up announcements and channel, level-up message and link buttons, message/voice XP rules, level roles and role mode |
+| 🎫 Tickets | on/off, category for ticket channels, staff roles, transcripts channel, open tickets per member, ask for a reason, **Edit ticket message**, post the ticket button |
 | 🛡️ Moderation | mod-log / reports / alerts channels, punishment DMs, appeal link, automod filters and limits, banned words, allowed links, exemptions, escalation rules, anti-raid, raid mode |
 | 📜 Server Logs | which log channels exist, create/repair log channels and stats counters, staff read access |
 | 🏷️ Nicknames | mode, template, rename bots, excluded roles/members, preview / rename / restore, job status |
@@ -28,6 +29,10 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 - Level-up messages carry **📊 My rank** and **🏆 Leaderboard** buttons; mod-log cases carry **📜 History** and **↩️ Undo**; punishment DMs carry an **Appeal** button. All of these keep working after restarts.
 
 All the slash commands below still work and change the same settings.
+
+### Tickets
+
+Set up from the panel's 🎫 Tickets section, then post the ticket button in a public channel. A member presses **🎫 Open a ticket** (optionally giving a reason) and gets a private `ticket-0001` channel that only they, your staff roles and the bot can see. Staff press **🙋 Claim** to take it; staff or the member press **🔒 Close**: a `.txt` transcript goes to the transcripts channel and to the member, then the channel is deleted. All buttons keep working after restarts. The bot needs **Manage Channels** (and Manage Roles, to set the ticket channel permissions).
 
 ## Commands
 
@@ -136,8 +141,8 @@ core/                shared by every feature
   web.py             / and /health
   cogs/system.py     /ping, /status, /sync
 features/
-  moderation/  logging/  nickname/  community/     each: __init__.py (setup), cogs/, services or utils, db layer
-migrations/          0001_core … 0007_community_messages (.sql)
+  moderation/  logging/  nickname/  community/  tickets/     each: __init__.py (setup), cogs/, services or utils, db layer
+migrations/          0001_core … 0008_tickets (.sql)
 assets/fonts/        Noto fonts for the image cards
 tests/               pytest; tests/community uses an embedded Postgres
 PRIVACY.txt TERMS.txt
