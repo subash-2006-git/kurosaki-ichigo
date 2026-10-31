@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
+from datetime import timedelta
 from typing import Any
 
 import discord
@@ -68,17 +69,39 @@ def transcript_text(ticket, guild_name: str, messages, closed_by: str) -> str:
     return "\n".join(header + (lines or ["(no messages)"])) + "\n"
 
 
-def is_staff(member: discord.Member, settings) -> bool:
+def staff_role_ids(settings, ticket_type=None) -> list[int]:
+    """The server-wide staff roles, plus the ticket type's own."""
+    extra = [r for r in (ticket_type.staff_role_ids if ticket_type else []) if r not in settings.staff_role_ids]
+    return [*settings.staff_role_ids, *extra]
+
+
+def is_staff(member: discord.Member, settings, ticket_type=None) -> bool:
     if member.guild_permissions.manage_channels:
         return True
-    return any(role.id in settings.staff_role_ids for role in member.roles)
+    return any(role.id in staff_role_ids(settings, ticket_type) for role in member.roles)
 
 
-def opening_message(settings, guild: discord.Guild) -> dict:
+def opening_message(settings, guild: discord.Guild, types=()) -> dict:
+    """The posted message: one button per ticket type, or a single button when there are no types."""
     draft = EmbedDraft.from_dict(settings.opening_embed or DEFAULT_OPENING)
     view = discord.ui.View(timeout=None)
-    view.add_item(OpenTicketButton(label=settings.button_label))
+    if types:
+        for ticket_type in types:
+            view.add_item(OpenTicketButton(label=ticket_type.label, emoji=ticket_type.emoji, type_id=ticket_type.id))
+    else:
+        view.add_item(OpenTicketButton(label=settings.button_label))
     return {"embed": brand(draft.to_embed(), guild), "view": view}
+
+
+def idle_step(now, last_message_at, last_message_id, warning_id, close_hours: int, warn_hours: int) -> str | None:
+    """What auto-close does to a ticket now: "warn", "close" or nothing.
+
+    The warning goes out once the ticket has been silent for (close - warn) hours. It closes when the
+    warning is still the last message `warn_hours` later; any reply makes it a normal silent ticket again.
+    """
+    if warning_id and last_message_id == warning_id:
+        return "close" if now - discord.utils.snowflake_time(warning_id) >= timedelta(hours=warn_hours) else None
+    return "warn" if now - last_message_at >= timedelta(hours=close_hours - warn_hours) else None
 
 
 def ticket_controls(claimed_by: str | None = None) -> discord.ui.View:
@@ -95,33 +118,42 @@ class ReasonForm(discord.ui.Modal, title="Open a ticket"):
     reason = discord.ui.TextInput(label="What do you need help with?", style=discord.TextStyle.paragraph,
                                   max_length=500, required=False)
 
+    def __init__(self, type_id: int | None = None) -> None:
+        super().__init__()
+        self.type_id = type_id
+
     async def on_submit(self, interaction: discord.Interaction) -> None:
-        await open_ticket(interaction, str(self.reason.value or "").strip() or None)
+        await open_ticket(interaction, str(self.reason.value or "").strip() or None, self.type_id)
 
 
-class OpenTicketButton(discord.ui.DynamicItem[discord.ui.Button], template=r"ticket:open"):
-    def __init__(self, *, label: str = "Open a ticket") -> None:
-        super().__init__(discord.ui.Button(label=label[:80], emoji="🎫", style=discord.ButtonStyle.primary,
-                                           custom_id="ticket:open"))
+class OpenTicketButton(discord.ui.DynamicItem[discord.ui.Button], template=r"ticket:open(?::(?P<type>\d+))?"):
+    def __init__(self, *, label: str = "Open a ticket", emoji: str | None = None, type_id: int | None = None) -> None:
+        self.type_id = type_id
+        super().__init__(discord.ui.Button(
+            label=label[:80], emoji=emoji or "🎫", style=discord.ButtonStyle.primary,
+            custom_id=f"ticket:open:{type_id}" if type_id else "ticket:open",
+        ))
 
     @classmethod
     async def from_custom_id(cls, interaction: discord.Interaction, item: discord.ui.Button, match, /) -> OpenTicketButton:
-        return cls()
+        return cls(type_id=int(match["type"]) if match["type"] else None)
 
     async def callback(self, interaction: discord.Interaction) -> None:
         settings = await interaction.client.tickets_db.settings(interaction.guild_id)
-        if problem := await _cannot_open(interaction, settings):
+        if problem := await _cannot_open(interaction, settings, self.type_id):
             await interaction.response.send_message(embed=problem, ephemeral=True)
             return
         if settings.ask_reason:
-            await interaction.response.send_modal(ReasonForm())
+            await interaction.response.send_modal(ReasonForm(self.type_id))
         else:
-            await open_ticket(interaction, None)
+            await open_ticket(interaction, None, self.type_id)
 
 
-async def _cannot_open(interaction: discord.Interaction, settings) -> discord.Embed | None:
+async def _cannot_open(interaction: discord.Interaction, settings, type_id: int | None = None) -> discord.Embed | None:
     if not settings.enabled:
         return style.warn("Tickets are closed right now. Please try again later.")
+    if type_id and await interaction.client.tickets_db.type(interaction.guild_id, type_id) is None:
+        return style.warn("That kind of ticket isn't available any more. Please tell a server admin.")
     existing = await interaction.client.tickets_db.open_for(interaction.guild_id, interaction.user.id)
     live = [t for t in existing if interaction.guild.get_channel(t.channel_id)]
     if len(live) >= settings.max_open:
@@ -132,15 +164,17 @@ async def _cannot_open(interaction: discord.Interaction, settings) -> discord.Em
     return None
 
 
-async def open_ticket(interaction: discord.Interaction, reason: str | None) -> None:
+async def open_ticket(interaction: discord.Interaction, reason: str | None, type_id: int | None = None) -> None:
     bot, guild, opener = interaction.client, interaction.guild, interaction.user
     await interaction.response.defer(ephemeral=True, thinking=True)
     settings = await bot.tickets_db.settings(guild.id)
-    if problem := await _cannot_open(interaction, settings):  # checked again: the form may have sat open
+    if problem := await _cannot_open(interaction, settings, type_id):  # checked again: the form may have sat open
         await interaction.followup.send(embed=problem, ephemeral=True)
         return
-    category = guild.get_channel(settings.category_id) if settings.category_id else None
-    staff = [r for r in (guild.get_role(i) for i in settings.staff_role_ids) if r is not None]
+    ticket_type = await bot.tickets_db.type(guild.id, type_id) if type_id else None
+    category_id = (ticket_type.category_id if ticket_type else None) or settings.category_id
+    category = guild.get_channel(category_id) if category_id else None
+    staff = [r for r in (guild.get_role(i) for i in staff_role_ids(settings, ticket_type)) if r is not None]
     number = await bot.tickets_db.next_number(guild.id)
     try:
         channel = await guild.create_text_channel(
@@ -155,9 +189,11 @@ async def open_ticket(interaction: discord.Interaction, reason: str | None) -> N
         await interaction.followup.send(embed=style.fail("I couldn't create your ticket channel. Please tell a server admin."),
                                         ephemeral=True)
         return
-    await bot.tickets_db.create(guild.id, number, channel.id, opener.id, reason)
+    await bot.tickets_db.create(guild.id, number, channel.id, opener.id, reason, ticket_type.id if ticket_type else None)
 
     embed = style.info(f"🎫 Ticket #{number}", f"{opener.mention} opened this ticket. The staff team will be with you soon.")
+    if ticket_type:
+        embed.add_field(name="Type", value=f"{ticket_type.emoji or '🎫'} {ticket_type.label}", inline=False)
     embed.add_field(name="Reason", value=reason or "*Not given*", inline=False)
     embed.set_thumbnail(url=opener.display_avatar.url)
     embed.timestamp = discord.utils.utcnow()
@@ -170,6 +206,10 @@ async def open_ticket(interaction: discord.Interaction, reason: str | None) -> N
 
 
 # ---- claim and close -------------------------------------------------------------------
+
+
+async def _type_of(bot, ticket):
+    return await bot.tickets_db.type(ticket.guild_id, ticket.type_id) if ticket.type_id else None
 
 
 class ClaimTicketButton(discord.ui.DynamicItem[discord.ui.Button], template=r"ticket:claim"):
@@ -190,7 +230,7 @@ class ClaimTicketButton(discord.ui.DynamicItem[discord.ui.Button], template=r"ti
         if ticket is None or ticket.status != "open":
             await interaction.response.send_message(embed=style.warn("This ticket is already closed."), ephemeral=True)
             return
-        if not is_staff(interaction.user, settings):
+        if not is_staff(interaction.user, settings, await _type_of(bot, ticket)):
             await interaction.response.send_message(embed=style.fail("Only staff can claim tickets."), ephemeral=True)
             return
         if not await bot.tickets_db.claim(ticket.id, interaction.user.id):
@@ -217,7 +257,7 @@ class CloseTicketButton(discord.ui.DynamicItem[discord.ui.Button], template=r"ti
         if ticket is None or ticket.status != "open":
             await interaction.response.send_message(embed=style.warn("This ticket is already closed."), ephemeral=True)
             return
-        if interaction.user.id != ticket.opener_id and not is_staff(interaction.user, settings):
+        if interaction.user.id != ticket.opener_id and not is_staff(interaction.user, settings, await _type_of(bot, ticket)):
             await interaction.response.send_message(embed=style.fail("Only staff or the member who opened it can close it."),
                                                     ephemeral=True)
             return
@@ -236,23 +276,28 @@ class CloseTicketButton(discord.ui.DynamicItem[discord.ui.Button], template=r"ti
         )
 
 
-async def close_ticket(bot, channel: discord.TextChannel, ticket, closer: discord.abc.User) -> bool:
+async def close_ticket(bot, channel: discord.TextChannel, ticket, closer: discord.abc.User, *,
+                       why: str | None = None) -> bool:
     """Save a transcript, notify, and delete the channel. False if someone else closed it first."""
     if not await bot.tickets_db.close(ticket.id, closer.id):
         return False
     guild = channel.guild
     settings = await bot.tickets_db.settings(guild.id)
-    await channel.send(embed=brand(style.info(None, f"🔒 Closed by {closer.mention}. This channel will be deleted in "
+    closed = why or f"Closed by {closer.mention}."
+    await channel.send(embed=brand(style.info(None, f"🔒 {closed} This channel will be deleted in "
                                                     f"{DELETE_DELAY} seconds."), guild))
     messages = [m async for m in channel.history(limit=TRANSCRIPT_LIMIT, oldest_first=True)]
-    text = transcript_text(ticket, guild.name, messages, f"{closer} ({closer.id})")
+    text = transcript_text(ticket, guild.name, messages, why or f"{closer} ({closer.id})")
     filename = f"{channel_name(ticket.number)}.txt"
 
+    ticket_type = await _type_of(bot, ticket)
     summary = style.info(f"🎫 Ticket #{ticket.number} closed")
     summary.add_field(name="Opened by", value=f"<@{ticket.opener_id}>")
-    summary.add_field(name="Closed by", value=closer.mention)
+    summary.add_field(name="Closed by", value=why or closer.mention)
     if ticket.claimed_by:
         summary.add_field(name="Handled by", value=f"<@{ticket.claimed_by}>")
+    if ticket_type:
+        summary.add_field(name="Type", value=f"{ticket_type.emoji or '🎫'} {ticket_type.label}")
     summary.add_field(name="Reason", value=ticket.reason or "*Not given*", inline=False)
     summary.add_field(name="Messages", value=str(len(messages)))
     summary.timestamp = discord.utils.utcnow()
@@ -267,8 +312,9 @@ async def close_ticket(bot, channel: discord.TextChannel, ticket, closer: discor
             log.warning("Ticket transcript not posted in guild %s: %s", guild.id, exc)
     opener = guild.get_member(ticket.opener_id)
     if opener is not None and not opener.bot:  # bots can't be DMed
+        extra = {"view": rating_view(ticket.id), "content": "How did we do? Rate this ticket:"} if settings.ask_rating else {}
         try:
-            await opener.send(embed=summary, file=discord.File(io.BytesIO(text.encode()), filename=filename))
+            await opener.send(embed=summary, file=discord.File(io.BytesIO(text.encode()), filename=filename), **extra)
         except discord.HTTPException:
             pass
 
@@ -279,3 +325,45 @@ async def close_ticket(bot, channel: discord.TextChannel, ticket, closer: discor
         log.warning("Ticket channel %s not deleted: %s", channel.id, exc)
     await bot.panel.refresh(guild)
     return True
+
+
+# ---- rating (in the closing DM) ----------------------------------------------------------
+
+
+def rating_view(ticket_id: int) -> discord.ui.View:
+    view = discord.ui.View(timeout=None)
+    for stars in range(1, 6):
+        view.add_item(RateTicketButton(ticket_id, stars))
+    return view
+
+
+class RateTicketButton(discord.ui.DynamicItem[discord.ui.Button], template=r"ticket:rate:(?P<id>\d+):(?P<stars>[1-5])"):
+    def __init__(self, ticket_id: int, stars: int) -> None:
+        self.ticket_id, self.stars = ticket_id, stars
+        super().__init__(discord.ui.Button(label=str(stars), emoji="⭐", style=discord.ButtonStyle.secondary,
+                                           custom_id=f"ticket:rate:{ticket_id}:{stars}"))
+
+    @classmethod
+    async def from_custom_id(cls, interaction: discord.Interaction, item: discord.ui.Button, match, /) -> RateTicketButton:
+        return cls(int(match["id"]), int(match["stars"]))
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        bot = interaction.client
+        if not await bot.tickets_db.rate(self.ticket_id, interaction.user.id, self.stars):
+            await interaction.response.edit_message(content="This ticket has already been rated. Thanks!", view=None)
+            return
+        await interaction.response.edit_message(content=f"Thanks! You rated this ticket {'⭐' * self.stars}", view=None)
+        ticket = await bot.tickets_db.by_id(self.ticket_id)
+        guild = bot.get_guild(ticket.guild_id) if ticket else None
+        if guild is None:
+            return
+        settings = await bot.tickets_db.settings(guild.id)
+        log_channel = guild.get_channel(settings.log_channel_id) if settings.log_channel_id else None
+        if isinstance(log_channel, discord.abc.Messageable):
+            handled = f" · handled by <@{ticket.claimed_by}>" if ticket.claimed_by else ""
+            line = f"{'⭐' * self.stars} Ticket #{ticket.number} was rated **{self.stars}/5** by <@{ticket.opener_id}>{handled}"
+            try:
+                await log_channel.send(embed=brand(style.info(None, line), guild),
+                                       allowed_mentions=discord.AllowedMentions.none())
+            except discord.HTTPException:
+                pass

@@ -63,6 +63,10 @@ The server owner and the bot are always trusted. **Add your admins as trusted pe
 
 Set up from the panel's 🎫 Tickets section, then post the ticket button in a public channel. A member presses **🎫 Open a ticket** (optionally giving a reason) and gets a private `ticket-0001` channel that only they, your staff roles and the bot can see. Staff press **🙋 Claim** to take it; staff or the member press **🔒 Close**: a `.txt` transcript goes to the transcripts channel and to the member, then the channel is deleted. All buttons keep working after restarts. The bot needs **Manage Channels** (and Manage Roles, to set the ticket channel permissions).
 
+- **Types** (up to 5): each gets its own button on the ticket message, can add its own staff roles, and can use its own category.
+- **Closing quiet tickets** (off by default): after the chosen hours without messages the member is pinged with a warning; if nobody writes before the warning runs out, the ticket closes with a transcript as usual.
+- **Ratings** (on by default): the closing DM carries 1–5 ⭐ buttons. Each rating is posted in the transcripts channel, and the panel shows the average overall and per staff member (by who claimed the ticket).
+
 ## Commands
 
 All commands are slash commands. Admin commands are hidden from members who don't have the needed permission (Server Settings → Integrations can change that per server).
