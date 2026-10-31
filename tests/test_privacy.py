@@ -19,6 +19,7 @@ async def seed(conn, user_id: int) -> None:
         "INSERT INTO suggestions.suggestions (guild_id, number, author_id, channel_id, message_id, content) "
         "VALUES (1, $1, $2, 3, $3, 'idea') RETURNING id", user_id, user_id, 3000 + user_id)
     await conn.execute("INSERT INTO suggestions.votes (suggestion_id, user_id, vote) VALUES ($1, $2, 1)", suggestion, user_id)
+    await conn.execute("INSERT INTO birthdays.birthdays (guild_id, user_id, month, day) VALUES (1, $1, 5, 4)", user_id)
     await conn.execute("INSERT INTO tickets.tickets (guild_id, number, channel_id, opener_id) VALUES (1, $1, 5, $2)",
                        user_id, user_id)
 

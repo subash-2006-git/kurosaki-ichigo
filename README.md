@@ -18,6 +18,7 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 | 👋 Welcome & Goodbye | on/off, channel, embed or plain text, image card, card background (upload or link), link buttons, goodbye DM, **Edit message** (embed editor with live preview), **Preview** |
 | 📈 Leveling | on/off, level-up announcements and channel, level-up message and link buttons, message/voice XP rules, **XP boost events** (2–5× XP for a set time), **no-XP channels** (channels or whole categories), level roles and role mode |
 | 🏷️ Self roles | post the pronoun picker (several allowed) and the DM-status picker (open / closed / ask; one at a time), created on first use; pick up to 10 of your roles as **ping roles** and post that picker |
+| 🎂 Birthdays | on/off, announcement channel, a role for the day, time zone and hour, the message |
 | ⭐ Starboard | on/off, channel, reaction and stars needed, whether self-stars count |
 | 💡 Suggestions | on/off, suggestions channel, a discussion thread on each suggestion |
 | 💬 Quote images | on/off, and the default look of new quotes (colour or grey avatar, side, light/dark, tinted with your theme colour) |
@@ -33,6 +34,7 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 - The panel's buttons keep working after restarts. Only members with **Manage Server** can use them. Running `/panel` again replaces the old panel.
 - Welcome, goodbye and level-up messages are embeds you design in the editor. Placeholders like `{user}`, `{server}`, `{membercount_ordinal}`, `{avatar}` and `{level}` are filled in; the image card shows inside the embed; up to 5 link buttons (Rules, Website…) go underneath.
 - **Suggestions:** `/suggest` posts the idea in the suggestions channel with 👍/👎 buttons (press again to take a vote back) and **Accept**/**Deny** buttons for staff with Manage Messages, who can add a reason. The member gets a DM with the decision, and voting closes. One suggestion per member per minute.
+- **Birthdays:** members save a day and month (no year) with `/birthday set`. Each day, at the chosen hour in the server's time zone, the bot posts the message for that day's birthdays and gives the birthday role (taken back the next day). 29 February birthdays are celebrated on the 28th in other years.
 - Level-up messages carry **📊 My rank** and **🏆 Leaderboard** buttons; mod-log cases carry **📜 History** and **↩️ Undo**; punishment DMs carry an **Appeal** button. All of these keep working after restarts.
 
 Settings commands the panel replaces (`/config`, `/welcome`, `/goodbye`, `/setup`, and the settings parts of `/leveling` and `/nick`) are hidden to keep the command list short; set `CONFIG_COMMANDS=true` to bring them back. The commands below are the ones that stay.
@@ -83,6 +85,7 @@ All commands are slash commands. Admin commands are hidden from members who don'
 | Reports | `/report` · right-click → Apps → **Report Message** / **Report User** (buttons in the report channel keep working after restarts) |
 | Nicknames | `/nick preview` `apply` `reset` `status` `stop` |
 | Embeds | `/embed create` |
+| Birthdays | `/birthday set` `remove` `upcoming` |
 | Leveling | `/rank` · `/leaderboard` · `/leveling xp set` `add` `reset` `reset-all` · `/leveling role sync` |
 | Settings | in `/panel` (with `CONFIG_COMMANDS=true` also `/config …`, `/welcome …`, `/goodbye …`, `/setup …` and the settings parts of `/leveling` and `/nick`) |
 
