@@ -35,6 +35,7 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 - Welcome, goodbye and level-up messages are embeds you design in the editor. Placeholders like `{user}`, `{server}`, `{membercount_ordinal}`, `{avatar}` and `{level}` are filled in; the image card shows inside the embed; up to 5 link buttons (Rules, Website…) go underneath.
 - **Suggestions:** `/suggest` posts the idea in the suggestions channel with 👍/👎 buttons (press again to take a vote back) and **Accept**/**Deny** buttons for staff with Manage Messages, who can add a reason. The member gets a DM with the decision, and voting closes. One suggestion per member per minute.
 - **Birthdays:** members save a day and month (no year) with `/birthday set`. Each day, at the chosen hour in the server's time zone, the bot posts the message for that day's birthdays and gives the birthday role (taken back the next day). 29 February birthdays are celebrated on the 28th in other years.
+- **Reminders:** anyone can set up to 25, from a minute to a year ahead. The bot pings them in the channel where they set it (or in DMs if they chose private, or the channel is gone) with a link back. Reminders are saved in the database, so restarts don't lose them.
 - Level-up messages carry **📊 My rank** and **🏆 Leaderboard** buttons; mod-log cases carry **📜 History** and **↩️ Undo**; punishment DMs carry an **Appeal** button. All of these keep working after restarts.
 
 Settings commands the panel replaces (`/config`, `/welcome`, `/goodbye`, `/setup`, and the settings parts of `/leveling` and `/nick`) are hidden to keep the command list short; set `CONFIG_COMMANDS=true` to bring them back. The commands below are the ones that stay.
@@ -86,6 +87,7 @@ All commands are slash commands. Admin commands are hidden from members who don'
 | Nicknames | `/nick preview` `apply` `reset` `status` `stop` |
 | Embeds | `/embed create` |
 | Birthdays | `/birthday set` `remove` `upcoming` |
+| Reminders | `/remind me` (`when` like 10m, 2h, 1d12h or 3w; optional `private` for DMs) · `/remind list` · `/remind cancel` |
 | Leveling | `/rank` · `/leaderboard` · `/leveling xp set` `add` `reset` `reset-all` · `/leveling role sync` |
 | Settings | in `/panel` (with `CONFIG_COMMANDS=true` also `/config …`, `/welcome …`, `/goodbye …`, `/setup …` and the settings parts of `/leveling` and `/nick`) |
 

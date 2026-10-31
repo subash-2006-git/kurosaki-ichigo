@@ -38,6 +38,10 @@ The bot stores only what its features need, keyed by Discord server (guild) ID a
     - Ticket messages themselves are not stored by the bot; when a ticket closes, a transcript file
       is posted to the server's chosen transcripts channel and sent to the member who opened it.
 
+  Reminders
+    - Each reminder's text, when it's due, where it was set (server and channel) and whether it
+      goes to DMs. It's deleted as soon as it's delivered or cancelled.
+
   Birthdays
     - The day and month a member saved with /birthday set (never the year), per server, until
       they remove it.
@@ -92,8 +96,8 @@ Data is not sold, shared with advertisers, or used to train AI models.
 
 5. YOUR CHOICES
   - Anyone can use /mydata to see what the bot stores about them and delete their XP, levels,
-    nickname records, starboard entries, suggestions, suggestion votes and saved birthdays
-    themselves, in every server at once.
+    nickname records, starboard entries, suggestions, suggestion votes, saved birthdays and
+    reminders themselves, in every server at once.
   - Server admins can reset XP, remove warnings, delete notes and change or clear settings with the
     bot's commands.
   - Anyone may request access to, or deletion of, data about them by contacting the operator at

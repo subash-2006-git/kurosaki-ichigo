@@ -1,7 +1,7 @@
 """/mydata: members see what the bot stores about them and can delete it themselves.
 
 Deleted: XP and levels, the XP history, nickname records, starboard entries (and their board posts),
-suggestions (and their posts), suggestion votes and saved birthdays.
+suggestions (and their posts), suggestion votes, saved birthdays and reminders.
 Kept: moderation records (cases, notes, reports) and ticket records, which servers need to enforce
 their rules. PRIVACY.txt says the same.
 """
@@ -33,6 +33,7 @@ DELETABLE = {
     "Suggestions you posted": "SELECT COUNT(*) FROM suggestions.suggestions WHERE author_id = $1",
     "Suggestion votes": "SELECT COUNT(*) FROM suggestions.votes WHERE user_id = $1",
     "Saved birthdays": "SELECT COUNT(*) FROM birthdays.birthdays WHERE user_id = $1",
+    "Reminders": "SELECT COUNT(*) FROM reminders.reminders WHERE user_id = $1",
 }
 KEPT = {
     "Moderation cases": "SELECT COUNT(*) FROM moderation.cases WHERE user_id = $1",
@@ -49,6 +50,7 @@ DELETE = (
     "DELETE FROM suggestions.votes WHERE user_id = $1",
     "DELETE FROM suggestions.suggestions WHERE author_id = $1",
     "DELETE FROM birthdays.birthdays WHERE user_id = $1",
+    "DELETE FROM reminders.reminders WHERE user_id = $1",
 )
 # Messages the bot posted about the user, removed along with their rows: (guild_id, channel_id, message_id).
 POSTS = (
