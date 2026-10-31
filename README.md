@@ -17,6 +17,9 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 |---|---|
 | 👋 Welcome & Goodbye | on/off, channel, embed or plain text, image card, card background (upload or link), link buttons, goodbye DM, **Edit message** (embed editor with live preview), **Preview** |
 | 📈 Leveling | on/off, level-up announcements and channel, level-up message and link buttons, message/voice XP rules, level roles and role mode |
+| 🏷️ Self roles | post the pronoun picker (several allowed) and the DM-status picker (open / closed / ask; one at a time); roles are created on first use |
+| ⭐ Starboard | on/off, channel, reaction and stars needed, whether self-stars count |
+| 💬 Quote images | on/off |
 | 🎫 Tickets | on/off, category for ticket channels, staff roles, transcripts channel, open tickets per member, ask for a reason, **Edit ticket message**, post the ticket button |
 | 🧨 Anti-nuke | on/off, punishment (remove roles / kick / ban), undo the damage, block untrusted bots, block dangerous permissions, trusted people and roles, alerts channel, limits |
 | 🛡️ Moderation | mod-log / reports / alerts channels, punishment DMs, appeal link, automod filters and limits, banned words, allowed links, exemptions, escalation rules, anti-raid, raid mode |
@@ -24,12 +27,20 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 | 🏷️ Nicknames | mode, template, rename bots, excluded roles/members, preview / rename / restore, job status |
 | 🎨 Appearance | the server's theme colour and footer, used by the bot's messages |
 
+- A **Getting started** checklist at the top shows what's left to set up (bot role at the top, logs, mod-log, anti-nuke with trusted admins, the ticket button) and shrinks to one line once everything is done.
 - Editors open **privately** (only you see them) and close after 10 minutes without use; every change applies instantly and updates the panel.
 - The panel's buttons keep working after restarts. Only members with **Manage Server** can use them. Running `/panel` again replaces the old panel.
 - Welcome, goodbye and level-up messages are embeds you design in the editor. Placeholders like `{user}`, `{server}`, `{membercount_ordinal}`, `{avatar}` and `{level}` are filled in; the image card shows inside the embed; up to 5 link buttons (Rules, Website…) go underneath.
 - Level-up messages carry **📊 My rank** and **🏆 Leaderboard** buttons; mod-log cases carry **📜 History** and **↩️ Undo**; punishment DMs carry an **Appeal** button. All of these keep working after restarts.
 
 All the slash commands below still work and change the same settings.
+
+### Self roles, starboard and quote images
+
+- **Self roles:** post the pickers from the panel. Members press buttons to add or remove roles: pronouns (he/him, she/her, they/them, any pronouns, ask my pronouns; pick several) and DM status (DMs open, DMs closed, ask to DM; one at a time). Roles are created the first time someone picks them, or an existing role with the same name is used.
+- **Starboard:** when a message gets enough ⭐ (or your chosen reaction), it's reposted to the starboard channel with the author, text, first image and a Jump button. The count updates, and the post leaves if stars drop below the limit. Self-stars don't count unless you allow them; bot messages are ignored.
+- **Quote images:** right-click a message → **Apps → Make a quote image**, or reply to a message and mention the bot. The picture shows the author's avatar fading into their words. Buttons switch the avatar between colour and grey, flip sides, and switch light/dark; the requester, the quoted person or anyone with Manage Messages can change or delete it. Turn it off in the panel.
+- **`/mydata`** (anyone): shows what the bot stores about you across all servers and lets you delete your XP, levels, nickname records and starboard posts. Moderation and ticket records are kept, since servers need them to enforce their rules.
 
 ### How anti-nuke works
 
@@ -56,7 +67,7 @@ All commands are slash commands. Admin commands are hidden from members who don'
 
 | Area | Commands |
 |---|---|
-| Bot | `/panel` (control panel) · `/ping` · `/status` (Manage Server: Discord + database latency, uptime, running jobs) · `/sync` (bot owner: re-sync commands) |
+| Bot | `/panel` (control panel) · `/mydata` (anyone: see or delete your data) · `/ping` · `/status` (Manage Server: Discord + database latency, uptime, running jobs) · `/sync` (bot owner: re-sync commands) |
 | Punish | `/warn` `/warnings` `/delwarn` `/clearwarns` · `/timeout` `/untimeout` · `/kick` · `/ban` `/tempban` `/softban` `/unban` |
 | Cases | `/case` `/modlogs` `/reason` |
 | Moderation setup | `/config view` · `/config modlog` `reports` `alerts` `appeal` `dm` · `/config automod …` · `/config badword …` · `/config whitelist …` · `/config escalation …` · `/config antiraid` · `/raidmode` |
@@ -157,8 +168,8 @@ core/                shared by every feature
   web.py             / and /health
   cogs/system.py     /ping, /status, /sync
 features/
-  moderation/  logging/  nickname/  community/  tickets/  antinuke/     each: __init__.py (setup), cogs/, services or utils, db layer
-migrations/          0001_core … 0009_antinuke (.sql)
+  moderation/  logging/  nickname/  community/  tickets/  antinuke/  selfroles/  starboard/  quotes/  privacy/     each: __init__.py (setup), cogs/, services or utils, db layer
+migrations/          0001_core … 0012_quotes (.sql)
 assets/fonts/        Noto fonts for the image cards
 tests/               pytest; tests/community uses an embedded Postgres
 PRIVACY.txt TERMS.txt
