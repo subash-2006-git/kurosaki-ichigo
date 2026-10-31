@@ -1,10 +1,11 @@
 import io
 import re
+from types import SimpleNamespace
 
 import pytest
 from PIL import Image
 
-from features.quotes.cog import QuoteButton, QuotesDB, quote_view
+from features.quotes.cog import QuoteButton, QuotesDB, latest_message, parse_message_ref, quote_view
 from features.quotes.render import MAX_CHARS, QuoteStyle, clean_text, layout, render_quote, wrap
 
 NAMES = dict(user=lambda i: {1: "Sam"}.get(i), role=lambda i: {2: "Mods"}.get(i), channel=lambda i: {3: "general"}.get(i))
@@ -55,3 +56,27 @@ async def test_settings_default_on(core_db):
     assert await db.enabled(1)
     await db.set_enabled(1, False)
     assert not await db.enabled(1) and not await QuotesDB(core_db.pool).enabled(1)
+
+
+def test_parse_message_ref():
+    assert parse_message_ref("https://discord.com/channels/1/22/333") == (22, 333)
+    assert parse_message_ref("https://ptb.discord.com/channels/1/22/333 extra") == (22, 333)
+    assert parse_message_ref("https://discordapp.com/channels/1/22/333") == (22, 333)
+    assert parse_message_ref(" 333 ") == (None, 333)
+    assert parse_message_ref("hello") is None
+
+
+async def test_latest_message_skips_bots_and_empty():
+    def msg(author_id, content, bot=False):
+        return SimpleNamespace(author=SimpleNamespace(id=author_id, bot=bot), content=content)
+
+    messages = [msg(1, "bot says", bot=True), msg(2, "   "), msg(3, "from three"), msg(2, "from two")]
+
+    class Channel:
+        async def history(self, limit):
+            for m in messages:
+                yield m
+
+    assert (await latest_message(Channel(), None)).content == "from three"
+    assert (await latest_message(Channel(), SimpleNamespace(id=2))).content == "from two"
+    assert await latest_message(Channel(), SimpleNamespace(id=9)) is None

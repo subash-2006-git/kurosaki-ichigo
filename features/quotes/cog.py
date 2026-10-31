@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
+import re
 import time
 from typing import TYPE_CHECKING
 
@@ -76,6 +77,49 @@ async def make_image(message: discord.Message, quote_style: QuoteStyle) -> disco
         avatar = None
     png = await asyncio.to_thread(render_quote, quote_text(message), author.display_name, author.name, avatar, quote_style)
     return discord.File(io.BytesIO(png), filename="quote.png")
+
+
+MESSAGE_LINK = re.compile(r"(?:https?://)?(?:\w+\.)?discord(?:app)?\.com/channels/(\d+)/(\d+)/(\d+)")
+
+
+def parse_message_ref(text: str) -> tuple[int | None, int] | None:
+    """A message link -> (channel_id, message_id); a bare ID -> (None, message_id); anything else -> None."""
+    text = text.strip()
+    if match := MESSAGE_LINK.search(text):
+        return int(match[2]), int(match[3])
+    if text.isdigit():
+        return None, int(text)
+    return None
+
+
+async def find_message(interaction: discord.Interaction, text: str) -> discord.Message | str:
+    """The message a link/ID points to, or a friendly reason it can't be used."""
+    ref = parse_message_ref(text)
+    if ref is None:
+        return "That isn't a message link or ID. Right-click a message → **Copy Message Link**."
+    channel_id, message_id = ref
+    channel = interaction.guild.get_channel_or_thread(channel_id) if channel_id else interaction.channel
+    if not isinstance(channel, discord.abc.Messageable):
+        return "I can't find that channel in this server."
+    member = interaction.user
+    if isinstance(member, discord.Member) and not channel.permissions_for(member).read_message_history:
+        return "You can't read that channel."
+    try:
+        return await channel.fetch_message(message_id)
+    except discord.NotFound:
+        return "I couldn't find that message. If it's in another channel, use its full link."
+    except discord.Forbidden:
+        return "I can't read that channel."
+
+
+async def latest_message(channel, user: discord.abc.User | None) -> discord.Message | None:
+    """The most recent message with text in this channel (from `user`, if given), skipping bots."""
+    async for message in channel.history(limit=50):
+        if message.author.bot or not message.content.strip():
+            continue
+        if user is None or message.author.id == user.id:
+            return message
+    return None
 
 
 def quote_view(quote_style: QuoteStyle, requester_id: int, channel_id: int, message_id: int) -> discord.ui.View:
@@ -167,8 +211,38 @@ class Quotes(commands.Cog):
             await interaction.response.send_message(embed=style.warn(problem), ephemeral=True)
             return
         await interaction.response.defer(thinking=True)
+        await self._send_quote(interaction, message)
+
+    async def _send_quote(self, interaction: discord.Interaction, message: discord.Message) -> None:
         image = await make_image(message, QuoteStyle())
         await interaction.followup.send(file=image, view=quote_view(QuoteStyle(), interaction.user.id, message.channel.id, message.id))
+
+    @app_commands.command(name="quote", description="Make a quote image from a message (default: the latest one here).")
+    @app_commands.describe(
+        message="A message link (right-click a message → Copy Message Link) or ID. Leave empty for the latest message.",
+        user="Quote this person's latest message here instead",
+    )
+    @app_commands.guild_only()
+    async def quote(self, interaction: discord.Interaction, message: str | None = None,
+                    user: discord.Member | None = None) -> None:
+        # Slash commands can't be sent as a reply, so the message is picked by link/ID, or the latest one.
+        await interaction.response.defer(thinking=True)
+        if message:
+            target = await find_message(interaction, message)
+            if isinstance(target, str):
+                await interaction.followup.send(embed=style.warn(target), ephemeral=True)
+                return
+        else:
+            target = await latest_message(interaction.channel, user)
+            if target is None:
+                who = f"{user.mention}'s" if user else "a"
+                await interaction.followup.send(embed=style.warn(f"I couldn't find {who} recent message with text here."),
+                                                ephemeral=True)
+                return
+        if problem := await self._problem(interaction.guild_id, target, interaction.user.id):
+            await interaction.followup.send(embed=style.warn(problem), ephemeral=True)
+            return
+        await self._send_quote(interaction, target)
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:

@@ -39,7 +39,7 @@ All the slash commands below still work and change the same settings.
 
 - **Self roles:** post the pickers from the panel. Members press buttons to add or remove roles: pronouns (he/him, she/her, they/them, any pronouns, ask my pronouns; pick several) and DM status (DMs open, DMs closed, ask to DM; one at a time). Roles are created the first time someone picks them, or an existing role with the same name is used.
 - **Starboard:** when a message gets enough ⭐ (or your chosen reaction), it's reposted to the starboard channel with the author, text, first image and a Jump button. The count updates, and the post leaves if stars drop below the limit. Self-stars don't count unless you allow them; bot messages are ignored.
-- **Quote images:** right-click a message → **Apps → Make a quote image**, or reply to a message and mention the bot. The picture shows the author's avatar fading into their words. Buttons switch the avatar between colour and grey, flip sides, and switch light/dark; the requester, the quoted person or anyone with Manage Messages can change or delete it. Turn it off in the panel.
+- **Quote images:** right-click a message → **Apps → Make a quote image**, reply to a message and mention the bot, or use **`/quote`** (latest message here, `user:` for someone's latest, or `message:` with a message link or ID; slash commands can't be sent as replies, so a link picks a specific message). The picture shows the author's avatar fading into their words. Buttons switch the avatar between colour and grey, flip sides, and switch light/dark; the requester, the quoted person or anyone with Manage Messages can change or delete it. Turn it off in the panel.
 - **`/mydata`** (anyone): shows what the bot stores about you across all servers and lets you delete your XP, levels, nickname records and starboard posts. Moderation and ticket records are kept, since servers need them to enforce their rules.
 
 ### How anti-nuke works
@@ -67,7 +67,7 @@ All commands are slash commands. Admin commands are hidden from members who don'
 
 | Area | Commands |
 |---|---|
-| Bot | `/panel` (control panel) · `/mydata` (anyone: see or delete your data) · `/ping` · `/status` (Manage Server: Discord + database latency, uptime, running jobs) · `/sync` (bot owner: re-sync commands) |
+| Bot | `/panel` (control panel) · `/quote` (quote image) · `/mydata` (anyone: see or delete your data) · `/ping` · `/status` (Manage Server: Discord + database latency, uptime, running jobs) · `/sync` (bot owner: re-sync commands) |
 | Punish | `/warn` `/warnings` `/delwarn` `/clearwarns` · `/timeout` `/untimeout` · `/kick` · `/ban` `/tempban` `/softban` `/unban` |
 | Cases | `/case` `/modlogs` `/reason` |
 | Moderation setup | `/config view` · `/config modlog` `reports` `alerts` `appeal` `dm` · `/config automod …` · `/config badword …` · `/config whitelist …` · `/config escalation …` · `/config antiraid` · `/raidmode` |
