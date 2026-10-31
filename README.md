@@ -22,6 +22,7 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 | ⭐ Starboard | on/off, channel, reaction and stars needed, whether self-stars count |
 | 💡 Suggestions | on/off, suggestions channel, a discussion thread on each suggestion |
 | 💬 Quote images | on/off, and the default look of new quotes (colour or grey avatar, side, light/dark, tinted with your theme colour) |
+| 🔊 Voice commands | roles and members the voice commands skip |
 | 🎫 Tickets | on/off, category for ticket channels, staff roles, transcripts channel, open tickets per member, ask for a reason, **Edit ticket message**, post the ticket button; **types** (own button, staff roles and category); closing quiet tickets; ratings and their averages |
 | 🧨 Anti-nuke | on/off, punishment (remove roles / kick / ban), undo the damage, block untrusted bots, block dangerous permissions, trusted people and roles, alerts channel, limits |
 | 🛡️ Moderation | mod-log / reports / alerts channels, punishment DMs, appeal link, automod filters and limits, banned words, allowed links, exemptions, escalation rules and how long warnings count, anti-raid (join floods, young accounts: kick or alert), raid mode and its automatic end |
@@ -36,6 +37,7 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 - **Suggestions:** `/suggest` posts the idea in the suggestions channel with 👍/👎 buttons (press again to take a vote back) and **Accept**/**Deny** buttons for staff with Manage Messages, who can add a reason. The member gets a DM with the decision, and voting closes. One suggestion per member per minute.
 - **Birthdays:** members save a day and month (no year) with `/birthday set`. Each day, at the chosen hour in the server's time zone, the bot posts the message for that day's birthdays and gives the birthday role (taken back the next day). 29 February birthdays are celebrated on the 28th in other years.
 - **Reminders:** anyone can set up to 25, from a minute to a year ahead. The bot pings them in the channel where they set it (or in DMs if they chose private, or the channel is gone) with a link back. Reminders are saved in the database, so restarts don't lose them.
+- **Voice commands** are text commands with the `!` prefix (change it with `PREFIX`). Type one in a voice channel's chat, or anywhere while you're in the voice channel. It acts on everyone there whose highest role is below the bot's, skipping whoever ran it, the server owner, and the roles and members picked in the panel. `all` is optional (`!server-mute` = `!server-mute all`). Each needs the matching permission in that channel, for you and the bot: Move Members to disconnect, Mute Members, Deafen Members. Results go to the mod-log. A server mute or deafen stays until removed, so `!server-unmute` / `!server-undeafen` undo it for everyone still in the channel.
 - Level-up messages carry **📊 My rank** and **🏆 Leaderboard** buttons; mod-log cases carry **📜 History** and **↩️ Undo**; punishment DMs carry an **Appeal** button. All of these keep working after restarts.
 
 Settings commands the panel replaces (`/config`, `/welcome`, `/goodbye`, `/setup`, and the settings parts of `/leveling` and `/nick`) are hidden to keep the command list short; set `CONFIG_COMMANDS=true` to bring them back. The commands below are the ones that stay.
@@ -82,6 +84,7 @@ All commands are slash commands. Admin commands are hidden from members who don'
 | Punish | `/warn` `/warnings` `/delwarn` `/clearwarns` · `/timeout` `/untimeout` · `/kick` · `/ban` `/tempban` `/softban` `/unban` |
 | Cases | `/case` `/modlogs` `/reason` |
 | Raids | `/raidmode` |
+| Voice | `!disconnect all` · `!server-mute` `!server-unmute` · `!server-deafen` `!server-undeafen` (text commands, see below) |
 | Staff tools | `/note add` `list` `delete` · `/role add` `remove` `temp` · `/purge` `/slowmode` `/lock` `/unlock` `/lockdown` · `/userinfo` `/serverinfo` |
 | Reports | `/report` · right-click → Apps → **Report Message** / **Report User** (buttons in the report channel keep working after restarts) |
 | Nicknames | `/nick preview` `apply` `reset` `status` `stop` |
@@ -158,6 +161,7 @@ See [`.env.example`](.env.example). Only `DISCORD_TOKEN` and `DATABASE_URL` are 
 | `DATABASE_URL` | — | required, Neon pooled connection string |
 | `DEV_GUILD_ID` | — | sync commands to one server (development) |
 | `SYNC_COMMANDS` | `false` | sync global commands on startup (production) |
+| `PREFIX` | `!` | prefix for the text commands (the voice commands); mentioning the bot also works |
 | `CONFIG_COMMANDS` | `false` | `true` keeps the settings commands the panel replaces (`/config`, `/welcome`, `/goodbye`, `/setup`, most of `/leveling` and `/nick`) |
 | `OWNER_IDS` | — | user IDs (comma-separated) allowed to use `/sync`; empty = the app's owner or team |
 | `DATABASE_SSL` | `require` | `disable` only for a local Postgres without TLS |

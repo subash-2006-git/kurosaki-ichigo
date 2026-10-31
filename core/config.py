@@ -43,6 +43,7 @@ DEV_GUILD_ID = _int("DEV_GUILD_ID")
 SYNC_COMMANDS = _bool("SYNC_COMMANDS")
 # Keep the settings commands the control panel replaces (/config, /welcome, /setup, ...). Off = panel only.
 CONFIG_COMMANDS = _bool("CONFIG_COMMANDS")
+PREFIX = _str("PREFIX") or "!"  # for the few text commands (the voice commands); slash commands don't use it
 # Who counts as the bot owner (for /sync). Empty = the Discord application's owner or team.
 OWNER_IDS = frozenset(int(part) for part in _str("OWNER_IDS").replace(" ", "").split(",") if part.isdigit())
 

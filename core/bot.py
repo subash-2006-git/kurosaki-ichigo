@@ -36,6 +36,7 @@ EXTENSIONS: tuple[str, ...] = (
     "features.suggestions",
     "features.birthdays",
     "features.reminders",
+    "features.voicecontrol",
     "features.privacy",
 )
 
@@ -67,7 +68,8 @@ class Bot(commands.Bot):
         discord.VoiceClient.warn_nacl = False
         discord.VoiceClient.warn_dave = False
         super().__init__(
-            command_prefix=commands.when_mentioned,
+            command_prefix=commands.when_mentioned_or(config.PREFIX),
+            case_insensitive=True,
             intents=build_intents(),
             help_command=None,
             tree_cls=CoreTree,
@@ -120,6 +122,9 @@ class Bot(commands.Bot):
 
     async def on_ready(self) -> None:
         log.info("Logged in as %s (%s) in %d guilds", self.user, self.user.id, len(self.guilds))
+
+    async def on_command_error(self, ctx: commands.Context, error: commands.CommandError) -> None:
+        await errors.on_command_error(self, ctx, error)
 
     async def on_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
         await errors.on_app_command_error(self, interaction, error)
