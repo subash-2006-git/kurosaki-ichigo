@@ -5,7 +5,7 @@ import pytest
 from core.panel.service import checklist_text
 from features.selfroles.buttons import SelfRoleButton
 from features.selfroles.db import SelfRolesDB
-from features.selfroles.menus import MENUS, plan_toggle
+from features.selfroles.menus import MENUS, PINGS, is_dynamic, ping_menu, plan_toggle
 
 PRONOUNS, DMS = MENUS["pronouns"], MENUS["dms"]
 
@@ -47,3 +47,21 @@ async def test_db(core_db):
     await db.set_location(1, "dms", 5, 6)
     await db.set_location(1, "dms", 7, 8)
     assert await db.location(1, "dms") == (7, 8)
+
+
+def test_ping_menu_from_server_roles():
+    menu = ping_menu([(111, "Announcements"), (222, "Events")])
+    assert menu.key == "pings" and not menu.exclusive and is_dynamic(menu.key) and not is_dynamic("pronouns")
+    assert [(o.key, o.label) for o in menu.options] == [("111", "Announcements"), ("222", "Events")]
+    assert plan_toggle(menu, {"111"}, "222") == (["222"], [])  # several allowed
+    assert re.fullmatch(SelfRoleButton.__discord_ui_compiled_template__, "srole:pings:1234567890123456789")
+    assert PINGS.options == ()
+
+
+async def test_set_menu_roles_replaces(core_db):
+    db = SelfRolesDB(core_db.pool)
+    await db.set_menu_roles(1, "pings", [5, 6])
+    await db.set_menu_roles(1, "pings", [6, 7])
+    assert await db.roles(1, "pings") == {"6": 6, "7": 7}
+    await db.set_menu_roles(1, "pings", [])
+    assert await db.roles(1, "pings") == {}

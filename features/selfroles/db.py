@@ -32,3 +32,12 @@ class SelfRolesDB:
             "ON CONFLICT (guild_id, menu) DO UPDATE SET channel_id = EXCLUDED.channel_id, message_id = EXCLUDED.message_id",
             guild_id, menu, channel_id, message_id,
         )
+
+    async def set_menu_roles(self, guild_id: int, menu: str, role_ids: list[int]) -> None:
+        """Replace a menu's options with these roles (option key = the role's ID)."""
+        async with self.pool.acquire() as conn, conn.transaction():
+            await conn.execute("DELETE FROM selfroles.roles WHERE guild_id = $1 AND menu = $2", guild_id, menu)
+            await conn.executemany(
+                "INSERT INTO selfroles.roles (guild_id, menu, key, role_id) VALUES ($1, $2, $3, $4)",
+                [(guild_id, menu, str(r), r) for r in role_ids],
+            )

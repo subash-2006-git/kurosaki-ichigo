@@ -8,15 +8,26 @@ import discord
 
 from core.ui import style
 from core.ui.theme import brand
-from features.selfroles.menus import MENUS, Menu, Option, plan_toggle
+from features.selfroles.menus import MENUS, Menu, Option, is_dynamic, ping_menu, plan_toggle
 
 log = logging.getLogger(__name__)
+
+
+async def load_menu(bot, guild: discord.Guild, menu_key: str) -> Menu | None:
+    """A built-in menu, or this server's ping menu built from the roles it picked."""
+    if is_dynamic(menu_key):
+        saved = await bot.selfroles_db.roles(guild.id, menu_key)
+        roles = [guild.get_role(role_id) for role_id in saved.values()]
+        return ping_menu([(r.id, r.name) for r in sorted(filter(None, roles), key=lambda r: -r.position)])
+    return MENUS.get(menu_key)
 
 
 async def resolve_role(bot, guild: discord.Guild, menu: Menu, option: Option) -> discord.Role | str:
     """The option's role: the saved one, else an existing role with the same name, else a new one. Or an error."""
     saved = (await bot.selfroles_db.roles(guild.id, menu.key)).get(option.key)
     role = guild.get_role(saved) if saved else None
+    if role is None and is_dynamic(menu.key):
+        return "That role doesn't exist anymore. Please tell a server admin."
     if role is None:
         role = discord.utils.find(lambda r: r.name.lower() == option.label.lower(), guild.roles)
         if role is None:
@@ -29,7 +40,7 @@ async def resolve_role(bot, guild: discord.Guild, menu: Menu, option: Option) ->
     return role
 
 
-class SelfRoleButton(discord.ui.DynamicItem[discord.ui.Button], template=r"srole:(?P<menu>[a-z]+):(?P<key>[a-z]+)"):
+class SelfRoleButton(discord.ui.DynamicItem[discord.ui.Button], template=r"srole:(?P<menu>[a-z]+):(?P<key>[a-z0-9]+)"):
     def __init__(self, menu: str, key: str, *, label: str | None = None, emoji: str | None = None) -> None:
         super().__init__(discord.ui.Button(label=label, emoji=emoji, style=discord.ButtonStyle.secondary,
                                            custom_id=f"srole:{menu}:{key}"))
@@ -41,7 +52,7 @@ class SelfRoleButton(discord.ui.DynamicItem[discord.ui.Button], template=r"srole
 
     async def callback(self, interaction: discord.Interaction) -> None:
         bot, guild, member = interaction.client, interaction.guild, interaction.user
-        menu = MENUS.get(self.menu)
+        menu = await load_menu(bot, guild, self.menu) if guild else None
         option = menu.option(self.key) if menu else None
         if guild is None or option is None or not isinstance(member, discord.Member):
             await interaction.response.send_message(embed=style.warn("This button is out of date."), ephemeral=True)

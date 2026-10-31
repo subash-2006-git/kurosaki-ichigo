@@ -17,7 +17,7 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 |---|---|
 | 👋 Welcome & Goodbye | on/off, channel, embed or plain text, image card, card background (upload or link), link buttons, goodbye DM, **Edit message** (embed editor with live preview), **Preview** |
 | 📈 Leveling | on/off, level-up announcements and channel, level-up message and link buttons, message/voice XP rules, level roles and role mode |
-| 🏷️ Self roles | post the pronoun picker (several allowed) and the DM-status picker (open / closed / ask; one at a time); roles are created on first use |
+| 🏷️ Self roles | post the pronoun picker (several allowed) and the DM-status picker (open / closed / ask; one at a time), created on first use; pick up to 10 of your roles as **ping roles** and post that picker |
 | ⭐ Starboard | on/off, channel, reaction and stars needed, whether self-stars count |
 | 💬 Quote images | on/off |
 | 🎫 Tickets | on/off, category for ticket channels, staff roles, transcripts channel, open tickets per member, ask for a reason, **Edit ticket message**, post the ticket button |
@@ -37,7 +37,7 @@ Settings commands the panel replaces (`/config`, `/welcome`, `/goodbye`, `/setup
 
 ### Self roles, starboard and quote images
 
-- **Self roles:** post the pickers from the panel. Members press buttons to add or remove roles: pronouns (he/him, she/her, they/them, any pronouns, ask my pronouns; pick several) and DM status (DMs open, DMs closed, ask to DM; one at a time). Roles are created the first time someone picks them, or an existing role with the same name is used.
+- **Self roles:** post the pickers from the panel. Members press buttons to add or remove roles: pronouns (he/him, she/her, they/them, any pronouns, ask my pronouns; pick several) and DM status (DMs open, DMs closed, ask to DM; one at a time). Roles are created the first time someone picks them, or an existing role with the same name is used. **Ping roles:** pick up to 10 of your own roles (announcements, events, …) in the panel and post that picker too; members opt in and out, and the posted picker updates when you change the roles.
 - **Starboard:** when a message gets enough ⭐ (or your chosen reaction), it's reposted to the starboard channel with the author, text, first image and a Jump button. The count updates, and the post leaves if stars drop below the limit. Self-stars don't count unless you allow them; bot messages are ignored.
 - **Quote images:** right-click a message → **Apps → Make a quote image**, reply to a message and mention the bot, or use **`/quote`** (latest message here, `user:` for someone's latest, or `message:` with a message link or ID; slash commands can't be sent as replies, so a link picks a specific message). The picture shows the author's avatar fading into their words. Buttons switch the avatar between colour and grey, flip sides, and switch light/dark; the requester, the quoted person or anyone with Manage Messages can change or delete it. Turn it off in the panel.
 - **`/mydata`** (anyone): shows what the bot stores about you across all servers and lets you delete your XP, levels, nickname records and starboard posts. Moderation and ticket records are kept, since servers need them to enforce their rules.

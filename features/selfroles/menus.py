@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 
 @dataclass(frozen=True)
 class Option:
-    key: str     # lowercase letters, used in the button's custom_id
+    key: str     # lowercase letters (or a role ID for ping roles), used in the button's custom_id
     label: str   # also the role's name
     emoji: str
 
@@ -50,6 +50,26 @@ MENUS: dict[str, Menu] = {
         ),
     ),
 }
+
+
+# Ping roles: the options are roles each server picks in the panel (option key = the role's ID).
+PINGS = Menu(
+    key="pings",
+    title="🔔 Ping roles",
+    description="Choose what you want to be pinged for. Press again to stop.",
+    exclusive=False,
+    options=(),
+)
+MAX_PING_ROLES = 10
+
+
+def ping_menu(roles: list[tuple[int, str]]) -> Menu:
+    """The ping menu for a server, from its chosen (role_id, role_name) pairs."""
+    return replace(PINGS, options=tuple(Option(str(role_id), name[:80], "🔔") for role_id, name in roles))
+
+
+def is_dynamic(menu_key: str) -> bool:
+    return menu_key == PINGS.key
 
 
 def plan_toggle(menu: Menu, current: set[str], key: str) -> tuple[list[str], list[str]]:
