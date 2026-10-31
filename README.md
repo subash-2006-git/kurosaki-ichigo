@@ -146,6 +146,7 @@ See [`.env.example`](.env.example). Only `DISCORD_TOKEN` and `DATABASE_URL` are 
 | `DATABASE_URL` | — | required, Neon pooled connection string |
 | `DEV_GUILD_ID` | — | sync commands to one server (development) |
 | `SYNC_COMMANDS` | `false` | sync global commands on startup (production) |
+| `OWNER_IDS` | — | user IDs (comma-separated) allowed to use `/sync`; empty = the app's owner or team |
 | `DATABASE_SSL` | `require` | `disable` only for a local Postgres without TLS |
 | `PORT` | `8080` | web server (Render sets this) |
 | `LOG_LEVEL` | `INFO` | |
@@ -190,6 +191,8 @@ Features plug into core through small hooks on the bot instead of importing each
 Add a new file `migrations/NNNN_description.sql` with the next number. Never edit a migration that has already run; the runner logs a warning if an applied file changes. Migrations run at startup inside one transaction, under a lock, so two instances starting together can't both apply them.
 
 ## Tests
+
+GitHub Actions runs the whole suite on every push (`.github/workflows/tests.yml`). To make Render deploy only commits that pass, set the service's **Auto-Deploy** to **After CI checks pass**.
 
 ```powershell
 pip install -r requirements-dev.txt

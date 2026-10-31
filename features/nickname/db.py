@@ -49,10 +49,16 @@ class NicknameDB:
     def __init__(self, pool: asyncpg.Pool):
         self.pool = pool
 
-    async def mark_interrupted_jobs(self) -> int:
-        """Jobs still marked running were cut off by a restart or crash."""
+    async def mark_interrupted_jobs(self, quiet_seconds: int = 120) -> int:
+        """Jobs still marked running but silent for a while were cut off by a restart or crash.
+
+        A running job saves progress (its heartbeat) every few members, so a job from another instance
+        that's still alive during a deploy isn't caught by this.
+        """
         status = await self.pool.execute(
-            "UPDATE nickname.jobs SET status = 'interrupted', finished_at = NOW() WHERE status = 'running'"
+            "UPDATE nickname.jobs SET status = 'interrupted', finished_at = NOW() "
+            "WHERE status = 'running' AND heartbeat_at < NOW() - make_interval(secs => $1)",
+            quiet_seconds,
         )
         return int(status.split()[-1])
 
@@ -170,7 +176,7 @@ class NicknameDB:
         await self.pool.execute(
             """
             UPDATE nickname.jobs
-            SET status = $2, processed = $3, changed = $4, skipped = $5, failed = $6, finished_at = to_timestamp($7)
+            SET status = $2, processed = $3, changed = $4, skipped = $5, failed = $6, finished_at = to_timestamp($7), heartbeat_at = NOW()
             WHERE id = $1
             """,
             job_id,

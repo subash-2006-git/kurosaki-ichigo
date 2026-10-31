@@ -63,9 +63,13 @@ class Database:
         )
         log.info("Database pool ready")
 
-    async def close(self) -> None:
+    async def close(self, timeout: float = 10.0) -> None:
+        """Let queries in progress finish (up to `timeout`), then close."""
         if self._pool is not None:
-            await self._pool.close()
+            try:
+                await asyncio.wait_for(self._pool.close(), timeout)
+            except asyncio.TimeoutError:
+                self._pool.terminate()
             self._pool = None
 
     async def ping(self, timeout: float = 15.0) -> float:

@@ -164,7 +164,11 @@ class JobManager:
             job.status = "crashed"
         finally:
             job.finished_at = time.time()
-            await self._save(job)
+            try:
+                await self._save(job)
+            except Exception:
+                # The row stays "running" with an old heartbeat; the next startup sweep marks it interrupted.
+                log.exception("Couldn't save the final state of job #%s", job.id)
             log.info("Job #%s finished: %s", job.id, job.status)
             if not shutting_down:
                 await self._report(job)

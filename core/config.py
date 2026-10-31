@@ -41,6 +41,8 @@ PORT = _int("PORT", 8080)
 LOG_LEVEL = _str("LOG_LEVEL", "INFO").upper()
 DEV_GUILD_ID = _int("DEV_GUILD_ID")
 SYNC_COMMANDS = _bool("SYNC_COMMANDS")
+# Who counts as the bot owner (for /sync). Empty = the Discord application's owner or team.
+OWNER_IDS = frozenset(int(part) for part in _str("OWNER_IDS").replace(" ", "").split(",") if part.isdigit())
 
 # ---- logging feature ------------------------------------------------------
 STATS_UPDATE_INTERVAL = _int("STATS_UPDATE_INTERVAL", 30)

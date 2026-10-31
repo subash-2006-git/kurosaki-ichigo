@@ -68,6 +68,7 @@ class Bot(commands.Bot):
             allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=True),
             # Recent messages kept in memory (across all servers) so edit/delete logs can show the old text.
             max_messages=5000,
+            **({"owner_ids": set(config.OWNER_IDS)} if config.OWNER_IDS else {}),
         )
         self.started_at = time.monotonic()
         self.db = Database(config.DATABASE_URL, ssl=config.DATABASE_SSL)
@@ -117,6 +118,10 @@ class Bot(commands.Bot):
         await errors.on_app_command_error(self, interaction, error)
 
     async def on_error(self, event: str, *args, **kwargs) -> None:
+        if self.is_closed():
+            # Work cut off by shutdown (e.g. the database pool closing under it) is expected.
+            log.info("Event %s stopped by shutdown: %r", event, sys.exc_info()[1])
+            return
         log.exception("Unhandled error in event %s", event)
         guild = next((g for g in (_guild_of(a) for a in args) if g is not None), None)
         exc = sys.exc_info()[1]
