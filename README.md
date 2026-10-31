@@ -16,7 +16,7 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 | Section | What you can change |
 |---|---|
 | 👋 Welcome & Goodbye | on/off, channel, embed or plain text, image card, card background (upload or link), link buttons, goodbye DM, **Edit message** (embed editor with live preview), **Preview** |
-| 📈 Leveling | on/off, level-up announcements and channel, level-up message and link buttons, message/voice XP rules, level roles and role mode |
+| 📈 Leveling | on/off, level-up announcements and channel, level-up message and link buttons, message/voice XP rules, **XP boost events** (2–5× XP for a set time), **no-XP channels** (channels or whole categories), level roles and role mode |
 | 🏷️ Self roles | post the pronoun picker (several allowed) and the DM-status picker (open / closed / ask; one at a time), created on first use; pick up to 10 of your roles as **ping roles** and post that picker |
 | ⭐ Starboard | on/off, channel, reaction and stars needed, whether self-stars count |
 | 💬 Quote images | on/off |

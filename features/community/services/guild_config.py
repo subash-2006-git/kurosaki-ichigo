@@ -57,6 +57,11 @@ class GuildConfig:
     levelup_buttons: list = dataclasses.field(default_factory=list)
     levelup_use_embed: bool = True
 
+    # XP boost events and no-XP channels (migration 0014).
+    xp_boost_multiplier: int = 1
+    xp_boost_until: Any = None
+    no_xp_channel_ids: list = dataclasses.field(default_factory=list)
+
     @classmethod
     def from_row(cls, row: Any) -> GuildConfig:
         return cls(**{field.name: getattr(row, field.name) for field in dataclasses.fields(cls)})

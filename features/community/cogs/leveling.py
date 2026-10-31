@@ -19,6 +19,7 @@ from features.community.models import XpSource
 from features.community.services.cards import render_rank_card
 from features.community.services.greeting import avatar_bytes
 from features.community.services.leveling import RankInfo, progress
+from features.community.services.xp_rules import boost_multiplier, is_no_xp
 from features.community.utils.cooldowns import Cooldowns
 from core.interactions import EPHEMERAL, defer, reply
 
@@ -56,12 +57,12 @@ class LevelingCog(commands.Cog):
         assert message.guild is not None and isinstance(message.author, discord.Member)
         try:
             config = await self.bot.guild_config.get(message.guild.id)
-            if not config.leveling_enabled:
+            if not config.leveling_enabled or is_no_xp(message.channel, config):
                 return
             if not self.cooldowns.try_acquire((message.guild.id, message.author.id), config.message_xp_cooldown):
                 return
 
-            amount = random.randint(config.message_xp_min, config.message_xp_max)
+            amount = random.randint(config.message_xp_min, config.message_xp_max) * boost_multiplier(config)
             result = await self.bot.leveling.award_xp(
                 message.guild.id, message.author.id, amount, XpSource.MESSAGE, name=message.author.display_name
             )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import timedelta
 from typing import TYPE_CHECKING, Literal
 
 import discord
@@ -12,6 +13,7 @@ from core.panel.service import PanelSection
 from core.ui import style
 from core.ui.embed_draft import EmbedDraft
 from core.ui.embed_editor import EmbedEditor
+from features.moderation.utils.time import parse_duration
 from features.community.models import RoleMode
 from features.community.services.greeting import MAX_CONTENT, build_greeting, greeting_settings
 from features.community.services.media import (
@@ -32,6 +34,7 @@ from features.community.services.messages import (
     parse_buttons,
     stored_draft,
 )
+from features.community.services.xp_rules import boost_multiplier
 from features.community.utils.checks import role_problem
 from features.community.utils.placeholders import help_text
 
@@ -72,7 +75,17 @@ async def leveling_status(bot: Bot, guild: discord.Guild) -> str:
     else:
         where = "level-ups where members chat"
     roles = len(await bot.roles.milestones(guild.id))
-    return f"{style.ON} XP on · {where} · {roles} level role{'s' if roles != 1 else ''}"
+    line = f"{style.ON} XP on · {where} · {roles} level role{'s' if roles != 1 else ''}"
+    if boost_multiplier(config) > 1:
+        line += f" · ⚡ {boost_text(config)}"
+    return line
+
+
+def boost_text(config) -> str:
+    multiplier = boost_multiplier(config)
+    if multiplier == 1:
+        return "No boost running. Start one for double (or more) XP for a while."
+    return f"{multiplier}× XP until {discord.utils.format_dt(config.xp_boost_until, 'f')} ({discord.utils.format_dt(config.xp_boost_until, 'R')})"
 
 
 # ---- the embed editor for stored messages ---------------------------------------------
@@ -377,7 +390,53 @@ class LevelingEditor(SectionEditor):
                         description="No XP when alone in a channel."),
             self.toggle("No XP while muted", config.voice_ignore_muted, self._flip("voice_ignore_muted")),
             self.toggle("No XP while deafened", config.voice_ignore_deafened, self._flip("voice_ignore_deafened")),
+            discord.ui.Separator(),
+            self.setting("⚡ XP boost", boost_text(config), "Start" if boost_multiplier(config) == 1 else "Change",
+                         self.edit_boost),
+            *([self.row(self.button("End the boost now", self.end_boost, style_=discord.ButtonStyle.danger))]
+              if boost_multiplier(config) > 1 else []),
+            self.text("**No-XP channels**\n-# Messages and voice time here earn nothing. Picking a category covers "
+                      "every channel in it."),
+            self.row(self._no_xp_select(config)),
         ]
+
+    def _no_xp_select(self, config) -> discord.ui.ChannelSelect:
+        select = discord.ui.ChannelSelect(
+            placeholder="Channels or categories that earn no XP", min_values=0, max_values=25,
+            channel_types=[discord.ChannelType.text, discord.ChannelType.news, discord.ChannelType.voice,
+                           discord.ChannelType.stage_voice, discord.ChannelType.forum, discord.ChannelType.category],
+            default_values=[discord.SelectDefaultValue(id=c, type=discord.SelectDefaultValueType.channel)
+                            for c in list(dict.fromkeys(config.no_xp_channel_ids or []))[:25]],
+        )
+        select.callback = self.pick_no_xp
+        return select
+
+    async def pick_no_xp(self, interaction: discord.Interaction) -> None:
+        channels = [int(v) for v in interaction.data.get("values") or []]
+        await self.bot.guild_config.update(self.guild.id, no_xp_channel_ids=channels)
+        await self.rerender(interaction)
+
+    async def edit_boost(self, interaction: discord.Interaction) -> None:
+        config = await self.bot.guild_config.get(self.guild.id)
+
+        async def save(modal_interaction: discord.Interaction, values: list[str]) -> None:
+            multiplier = _number(values[0], "Multiplier", 2, 5)
+            duration = parse_duration(values[1])
+            if duration is None or duration > timedelta(days=30):
+                raise ValueError("Use a duration like 2h, 1d or 3d (up to 30 days).")
+            until = discord.utils.utcnow() + duration
+            await self.bot.guild_config.update(self.guild.id, xp_boost_multiplier=multiplier, xp_boost_until=until)
+            await self.rerender(modal_interaction)
+
+        current = str(config.xp_boost_multiplier) if boost_multiplier(config) > 1 else "2"
+        await interaction.response.send_modal(Form("XP boost", [
+            Field("Multiplier", current, max_length=1, required=True, description="2–5. 2 means double XP."),
+            Field("How long", "2d", max_length=10, required=True, description="e.g. 6h, 2d, 1w (up to 30 days)."),
+        ], save))
+
+    async def end_boost(self, interaction: discord.Interaction) -> None:
+        await self.bot.guild_config.update(self.guild.id, xp_boost_multiplier=1, xp_boost_until=None)
+        await self.rerender(interaction)
 
     async def _roles_page(self, config) -> list[discord.ui.Item]:
         milestones = await self.bot.roles.milestones(self.guild.id)

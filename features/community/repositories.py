@@ -29,6 +29,7 @@ GUILD_SETTINGS_COLUMNS = frozenset(
         "welcome_embed", "welcome_buttons", "welcome_use_embed",
         "goodbye_embed", "goodbye_buttons", "goodbye_use_embed",
         "levelup_embed", "levelup_buttons", "levelup_use_embed",
+        "xp_boost_multiplier", "xp_boost_until", "no_xp_channel_ids",
     }
 )
 

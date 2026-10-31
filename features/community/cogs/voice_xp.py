@@ -14,6 +14,7 @@ from discord.ext import commands, tasks
 from core.bot import Bot as CommunityBot
 from features.community.models import XpSource
 from features.community.services.voice import VoiceMember, VoiceTracker
+from features.community.services.xp_rules import boost_multiplier, is_no_xp
 
 log = logging.getLogger(__name__)
 
@@ -89,7 +90,7 @@ class VoiceXpCog(commands.Cog):
         if not config.leveling_enabled:
             return
 
-        channels = [channel for channel in xp_channels(guild) if channel.members]
+        channels = [channel for channel in xp_channels(guild) if channel.members and not is_no_xp(channel, config)]
         if not channels:
             return
         members_by_id = {m.id: m for channel in channels for m in channel.members}
@@ -102,7 +103,7 @@ class VoiceXpCog(commands.Cog):
         results = await self.bot.leveling.award_many(
             guild.id,
             [(user_id, members_by_id[user_id].display_name) for user_id in due],
-            config.voice_xp_amount,
+            config.voice_xp_amount * boost_multiplier(config),
             XpSource.VOICE,
         )
         for user_id, result in results:
