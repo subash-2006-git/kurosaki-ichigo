@@ -60,6 +60,8 @@ class Bot(commands.Bot):
             help_command=None,
             tree_cls=CoreTree,
             allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=True),
+            # Recent messages kept in memory (across all servers) so edit/delete logs can show the old text.
+            max_messages=5000,
         )
         self.started_at = time.monotonic()
         self.db = Database(config.DATABASE_URL, ssl=config.DATABASE_SSL)

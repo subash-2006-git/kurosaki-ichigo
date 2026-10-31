@@ -86,6 +86,24 @@ Switching from dev to production commands: guild copies synced while `DEV_GUILD_
 
 `/health` returns 200 only when the bot is connected to Discord. It deliberately does not query the database, so uptime pingers don't keep Neon's compute awake; `/status` checks the database on demand.
 
+## Backups
+
+`.github/workflows/backup.yml` dumps the bot's schemas every day at 03:00 UTC (and on demand: **Actions → Database backup → Run workflow**), encrypts the dump, and keeps it as a workflow artifact for 30 days. The repo is public, so backups are always encrypted.
+
+**Setup (once):** GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**:
+
+- `DATABASE_URL`: the same Neon connection string the bot uses.
+- `BACKUP_PASSPHRASE`: a long random passphrase. **Store a copy somewhere safe**: without it a backup can't be read, and with it anyone holding the file can.
+
+**Restore:** download the artifact from the workflow run, unzip it, then (with an empty database, e.g. a new Neon branch):
+
+```bash
+export BACKUP_PASSPHRASE='...'
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:BACKUP_PASSPHRASE -in backup-….sql.gz.enc   | gunzip | psql "postgresql://…direct (non-pooler) Neon URL…"
+```
+
+Use a `psql` from Postgres 18 or newer (Neon's version). Restoring into the live database would clash with existing rows; restore into a fresh branch and point `DATABASE_URL` at it.
+
 ## Environment variables
 
 See [`.env.example`](.env.example). Only `DISCORD_TOKEN` and `DATABASE_URL` are required.

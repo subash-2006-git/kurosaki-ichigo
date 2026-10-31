@@ -48,6 +48,8 @@ messages in channels inside the server itself. The bot does not keep its own cop
 
 3. WHERE DATA IS KEPT
   - Database: Neon (managed PostgreSQL), United States (AWS us-west-2).
+  - Backups: an encrypted daily copy of the database, kept for 30 days as a private-key-protected
+    file in the bot's GitHub repository (readable only with the operator's passphrase).
   - Hosting: the bot's host provider.
   - Discord itself, for anything the bot posts in a server.
 Data is not sold, shared with advertisers, or used to train AI models.

@@ -1,0 +1,57 @@
+# Daily encrypted database backup.
+# Needs two repository secrets (Settings → Secrets and variables → Actions):
+#   DATABASE_URL       the same Neon connection string the bot uses
+#   BACKUP_PASSPHRASE  a long random passphrase; keep a copy somewhere safe, backups can't be read without it
+# The repo is public, so backups are encrypted before upload. Restore steps are in README.md → Backups.
+name: Database backup
+
+on:
+  schedule:
+    - cron: "0 3 * * *"  # daily, 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check secrets
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          if [ -z "$DATABASE_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::Set the DATABASE_URL and BACKUP_PASSPHRASE repository secrets."
+            exit 1
+          fi
+
+      - name: Dump, compress and encrypt
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          # pg_dump needs a direct connection, not Neon's -pooler endpoint.
+          url="${DATABASE_URL/-pooler/}"
+          echo "::add-mask::$url"
+          name="backup-$(date -u +%Y-%m-%dT%H%MZ).sql.gz.enc"
+          # postgres:18 matches Neon's server version (pg_dump must not be older than the server).
+          docker run --rm postgres:18 pg_dump --no-owner --no-privileges \
+            -n core -n community -n moderation -n nickname -n logging -n tickets -n antinuke \
+            "$url" \
+            | gzip -9 \
+            | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:BACKUP_PASSPHRASE -out "$name"
+          test -s "$name"
+          echo "BACKUP_FILE=$name" >> "$GITHUB_ENV"
+          ls -l "$name"
+
+      - name: Upload encrypted backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BACKUP_FILE }}
+          path: ${{ env.BACKUP_FILE }}
+          retention-days: 30
+          if-no-files-found: error
