@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING
 
 import discord
 
+from core import config
+from core.access import NOT_ALLOWED, is_allowed
 from core.ui import style
 
 if TYPE_CHECKING:
@@ -21,6 +23,8 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 SECTION_KEY_CHARS = "abcdefghijklmnopqrstuvwxyz_"
+WHO_CAN_USE = lambda: ("Only the bot's owners can use these buttons." if config.OWNER_ONLY  # noqa: E731
+                       else "Only members with **Manage Server** can use these buttons.")
 ROW_SIZE = 5  # buttons per row on the posted panel (Discord's maximum)
 
 # A getting-started item: (bot, guild) -> (done, text), or None when it doesn't apply to this server.
@@ -56,7 +60,11 @@ class PanelEntry(discord.ui.DynamicItem[discord.ui.Button], template=r"panel:(?P
 
     async def callback(self, interaction: discord.Interaction) -> None:
         member = interaction.user
-        if not isinstance(member, discord.Member) or not member.guild_permissions.manage_guild:
+        if config.OWNER_ONLY:
+            if not await is_allowed(interaction.client, member):
+                await interaction.response.send_message(embed=style.fail(NOT_ALLOWED), ephemeral=True)
+                return
+        elif not isinstance(member, discord.Member) or not member.guild_permissions.manage_guild:
             await interaction.response.send_message(
                 embed=style.fail("You need the **Manage Server** permission to change the bot's settings."),
                 ephemeral=True,
@@ -141,7 +149,7 @@ class PanelService:
             ]
         items += [
             discord.ui.Separator(),
-            discord.ui.TextDisplay("-# Only members with **Manage Server** can use these buttons. "
+            discord.ui.TextDisplay(f"-# {WHO_CAN_USE()} "
                                    "Editors open privately, so only you see them."),
         ]
         view = discord.ui.LayoutView(timeout=None)

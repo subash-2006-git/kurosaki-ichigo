@@ -14,6 +14,9 @@ from typing import Any
 import discord
 from discord import app_commands
 
+from core.access import NOT_ALLOWED, is_allowed
+from core.ui import style
+
 DEFER = "defer"          # True: defer before the command runs
 EPHEMERAL = "ephemeral"  # False: the deferred "thinking" (and so the reply) is public
 
@@ -45,6 +48,12 @@ def _extra(command: app_commands.Command | app_commands.Group, key: str, default
 
 class CoreTree(app_commands.CommandTree):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if not await is_allowed(interaction.client, interaction.user):
+            if interaction.type is discord.InteractionType.autocomplete:
+                await interaction.response.autocomplete([])
+            else:
+                await interaction.response.send_message(embed=style.fail(NOT_ALLOWED), ephemeral=True)
+            return False
         command = interaction.command
         if (
             interaction.type is discord.InteractionType.application_command

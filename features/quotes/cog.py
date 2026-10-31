@@ -20,6 +20,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from core.access import is_allowed
 from core.ui import style
 from features.quotes.render import QuoteLine, QuoteStyle, clean_text, render_conversation, render_quote
 
@@ -382,6 +383,8 @@ class Quotes(commands.Cog):
         if message.guild is None or message.author.bot or message.reference is None or self.bot.user is None:
             return
         if f"<@{self.bot.user.id}>" not in message.content and f"<@!{self.bot.user.id}>" not in message.content:
+            return
+        if not await is_allowed(self.bot, message.author):
             return
         target = message.reference.resolved
         if not isinstance(target, discord.Message):

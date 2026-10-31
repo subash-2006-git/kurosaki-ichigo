@@ -32,7 +32,7 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 
 - A **Getting started** checklist at the top shows what's left to set up (bot role at the top, logs, mod-log, anti-nuke with trusted admins, the ticket button) and shrinks to one line once everything is done.
 - Editors open **privately** (only you see them) and close after 10 minutes without use; every change applies instantly and updates the panel.
-- The panel's buttons keep working after restarts. Only members with **Manage Server** can use them. Running `/panel` again replaces the old panel.
+- The panel's buttons keep working after restarts. Only the bot's owners can use them (see **Who can use the bot**). Running `/panel` again replaces the old panel.
 - Welcome, goodbye and level-up messages are embeds you design in the editor. Placeholders like `{user}`, `{server}`, `{membercount_ordinal}`, `{avatar}` and `{level}` are filled in; the image card shows inside the embed; up to 5 link buttons (Rules, Website…) go underneath.
 - **Suggestions:** `/suggest` posts the idea in the suggestions channel with 👍/👎 buttons (press again to take a vote back) and **Accept**/**Deny** buttons for staff with Manage Messages, who can add a reason. The member gets a DM with the decision, and voting closes. One suggestion per member per minute.
 - **Birthdays:** members save a day and month (no year) with `/birthday set`. Each day, at the chosen hour in the server's time zone, the bot posts the message for that day's birthdays and gives the birthday role (taken back the next day). 29 February birthdays are celebrated on the 28th in other years.
@@ -47,7 +47,7 @@ Settings commands the panel replaces (`/config`, `/welcome`, `/goodbye`, `/setup
 - **Self roles:** post the pickers from the panel. Members press buttons to add or remove roles: pronouns (he/him, she/her, they/them, any pronouns, ask my pronouns; pick several) and DM status (DMs open, DMs closed, ask to DM; one at a time). Roles are created the first time someone picks them, or an existing role with the same name is used. **Ping roles:** pick up to 10 of your own roles (announcements, events, …) in the panel and post that picker too; members opt in and out, and the posted picker updates when you change the roles.
 - **Starboard:** when a message gets enough ⭐ (or your chosen reaction), it's reposted to the starboard channel with the author, text, first image and a Jump button. The count updates, and the post leaves if stars drop below the limit. Self-stars don't count unless you allow them; bot messages are ignored.
 - **Quote images:** right-click a message → **Apps → Make a quote image**, reply to a message and mention the bot, or use **`/quote`** (latest message here, `user:` for someone's latest, or `message:` with a message link or ID; slash commands can't be sent as replies, so a link picks a specific message). Add **`count:`** (2–5) to put several messages on one image as a conversation: the latest ones, or from the linked message onwards. The picture shows the author's avatar fading into their words. Buttons switch the avatar between colour and grey, flip sides, switch light/dark and tint the background with your theme colour; the requester, the quoted person or anyone with Manage Messages can change or delete it. Turn it off in the panel.
-- **`/mydata`** (anyone): shows what the bot stores about you across all servers and lets you delete your XP, levels, nickname records and starboard posts. Moderation and ticket records are kept, since servers need them to enforce their rules.
+- **`/mydata`**: shows what the bot stores about you across all servers and lets you delete your XP, levels, nickname records and starboard posts. Moderation and ticket records are kept, since servers need them to enforce their rules.
 
 ### How anti-nuke works
 
@@ -76,11 +76,13 @@ Set up from the panel's 🎫 Tickets section, then post the ticket button in a p
 
 ## Commands
 
-All commands are slash commands. Admin commands are hidden from members who don't have the needed permission (Server Settings → Integrations can change that per server).
+Most commands are slash commands; the voice commands are `!` text commands.
+
+**Who can use the bot:** with `OWNER_ONLY=true` (the default), only the bot's owners can use any command (slash, right-click Apps, `!` and replying-with-a-mention for quotes) or the control panel: the user IDs in `OWNER_IDS`, or the Discord application's owner/team when `OWNER_IDS` is empty. Everyone else gets "Only the bot's owners can use this bot's commands." Buttons members use aren't commands and keep working for everyone: opening tickets, self-role pickers, suggestion votes, ticket ratings, the quote restyle buttons, and level-up rank/leaderboard buttons; staff buttons (ticket claim/close, suggestion accept/deny, case History/Undo, report actions) keep their own permission checks. Discord can't hide slash commands from specific users, so members still see the commands in the `/` menu; they just can't run them. `OWNER_ONLY=false` goes back to permission-based access.
 
 | Area | Commands |
 |---|---|
-| Bot | `/panel` (control panel) · `/quote` (quote image) · `/suggest` (post a suggestion) · `/mydata` (anyone: see or delete your data) · `/ping` · `/status` (Manage Server: Discord + database latency, uptime, running jobs) · `/sync` (bot owner: re-sync commands) |
+| Bot | `/panel` (control panel) · `/quote` (quote image) · `/suggest` (post a suggestion) · `/mydata` (see or delete your data) · `/ping` · `/status` (Manage Server: Discord + database latency, uptime, running jobs) · `/sync` (bot owner: re-sync commands) |
 | Punish | `/warn` `/warnings` `/delwarn` `/clearwarns` · `/timeout` `/untimeout` · `/kick` · `/ban` `/tempban` `/softban` `/unban` |
 | Cases | `/case` `/modlogs` `/reason` |
 | Raids | `/raidmode` |
@@ -163,7 +165,8 @@ See [`.env.example`](.env.example). Only `DISCORD_TOKEN` and `DATABASE_URL` are 
 | `SYNC_COMMANDS` | `false` | sync global commands on startup (production) |
 | `PREFIX` | `!` | prefix for the text commands (the voice commands); mentioning the bot also works |
 | `CONFIG_COMMANDS` | `false` | `true` keeps the settings commands the panel replaces (`/config`, `/welcome`, `/goodbye`, `/setup`, most of `/leveling` and `/nick`) |
-| `OWNER_IDS` | — | user IDs (comma-separated) allowed to use `/sync`; empty = the app's owner or team |
+| `OWNER_IDS` | — | the bot's owners: user IDs, comma-separated; empty = the app's owner or team |
+| `OWNER_ONLY` | `true` | only the owners can use commands and the control panel; `false` = anyone with the needed permissions |
 | `DATABASE_SSL` | `require` | `disable` only for a local Postgres without TLS |
 | `PORT` | `8080` | web server (Render sets this) |
 | `LOG_LEVEL` | `INFO` | |
