@@ -386,3 +386,8 @@ class ModerationEditor(SectionEditor):
 
 SECTION = PanelSection(key="moderation", label="Moderation", emoji="🛡️", order=30,
                        status=status, open=ModerationEditor.open)
+
+
+async def check(bot: Bot, guild: discord.Guild) -> tuple[bool, str]:
+    s = await bot.mod_configs.get(guild.id)
+    return bool(s.modlog_channel_id and guild.get_channel(s.modlog_channel_id)), "A mod-log channel is set (🛡️ Moderation)"

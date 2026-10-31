@@ -35,9 +35,11 @@ async def setup(bot: Bot) -> None:
     bot.tickets_db = TicketDB(bot.db.pool)
     bot.add_dynamic_items(*BUTTONS)
     bot.panel.register(panel.SECTION)
+    bot.panel.add_check(panel.check)
     await bot.add_cog(Tickets(bot))
 
 
 async def teardown(bot: Bot) -> None:
     bot.remove_dynamic_items(*BUTTONS)
     bot.panel.unregister(panel.SECTION.key)
+    bot.panel.remove_check(panel.check)

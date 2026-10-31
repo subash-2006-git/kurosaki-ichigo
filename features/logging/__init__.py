@@ -29,12 +29,14 @@ async def setup(bot: Bot) -> None:
     bot.audit = AuditHandler(bot)
     bot.log_router.start()
     bot.panel.register(panel.SECTION)
+    bot.panel.add_check(panel.check)
     for name in COGS:
         await bot.load_extension(f"{__name__}.cogs.{name}")
 
 
 async def teardown(bot: Bot) -> None:
     bot.panel.unregister(panel.SECTION.key)
+    bot.panel.remove_check(panel.check)
     for name in COGS:
         with contextlib.suppress(commands.ExtensionNotLoaded):
             await bot.unload_extension(f"{__name__}.cogs.{name}")

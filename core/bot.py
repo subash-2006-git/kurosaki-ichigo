@@ -30,6 +30,7 @@ EXTENSIONS: tuple[str, ...] = (
     "features.community",
     "features.tickets",
     "features.antinuke",
+    "features.selfroles",
 )
 
 # A feature that can surface errors in a guild (the logging feature's custom-logs channel)

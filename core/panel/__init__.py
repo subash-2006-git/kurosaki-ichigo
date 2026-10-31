@@ -46,8 +46,15 @@ class Panel(commands.Cog):
         )
 
 
+async def bot_role_on_top(bot: Bot, guild: discord.Guild) -> tuple[bool, str]:
+    top = max((r for r in guild.roles if not r.is_default()), key=lambda r: r.position, default=None)
+    return (top is None or guild.me.top_role == top,
+            "My role is at the top of **Server Settings → Roles**, so moderation and anti-nuke can act on everyone")
+
+
 async def setup(bot: Bot) -> None:
     bot.panel = PanelService(bot)
+    bot.panel.add_check(bot_role_on_top)
     bot.add_dynamic_items(PanelEntry)
     bot.panel.register(PanelSection(
         key="appearance", label="Appearance", emoji=style.PALETTE, order=90,

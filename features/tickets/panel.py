@@ -159,3 +159,10 @@ class TicketsEditor(SectionEditor):
 
 
 SECTION = PanelSection(key="tickets", label="Tickets", emoji="🎫", order=35, status=status, open=TicketsEditor.open)
+
+
+async def check(bot: Bot, guild: discord.Guild) -> tuple[bool, str] | None:
+    s = await bot.tickets_db.settings(guild.id)
+    if not s.enabled:
+        return None  # only a to-do once tickets are turned on
+    return bool(s.panel_message_id), "The ticket button is posted (🎫 Tickets)"

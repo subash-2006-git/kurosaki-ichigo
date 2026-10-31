@@ -98,3 +98,7 @@ class LoggingEditor(SectionEditor):
 
 
 SECTION = PanelSection(key="logging", label="Server Logs", emoji="📜", order=40, status=status, open=LoggingEditor.open)
+
+
+async def check(bot: Bot, guild: discord.Guild) -> tuple[bool, str]:
+    return bot.log_channels.log_category(guild) is not None, "Server logs are set up (📜 Server Logs → Create log channels)"

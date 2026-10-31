@@ -160,3 +160,9 @@ class AntinukeEditor(SectionEditor):
 
 
 SECTION = PanelSection(key="antinuke", label="Anti-nuke", emoji="🧨", order=32, status=status, open=AntinukeEditor.open)
+
+
+async def check(bot: Bot, guild: discord.Guild) -> tuple[bool, str]:
+    s = await bot.antinuke_db.settings(guild.id)
+    return (s.enabled and bool(s.trusted_user_ids or s.trusted_role_ids),
+            "Anti-nuke is on, with your admins added as trusted (🧨 Anti-nuke)")

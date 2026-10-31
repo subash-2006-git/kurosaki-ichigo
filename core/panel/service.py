@@ -22,6 +22,9 @@ log = logging.getLogger(__name__)
 
 SECTION_KEY_CHARS = "abcdefghijklmnopqrstuvwxyz_"
 
+# A getting-started item: (bot, guild) -> (done, text), or None when it doesn't apply to this server.
+Check = Callable[["Bot", discord.Guild], Awaitable["tuple[bool, str] | None"]]
+
 
 @dataclass(frozen=True)
 class PanelSection:
@@ -72,6 +75,7 @@ class PanelService:
     def __init__(self, bot: Bot) -> None:
         self.bot = bot
         self._sections: dict[str, PanelSection] = {}
+        self._checks: list[Check] = []
 
     # --- sections ---------------------------------------------------------------
 
@@ -83,6 +87,25 @@ class PanelService:
 
     def section(self, key: str) -> PanelSection | None:
         return self._sections.get(key)
+
+    def add_check(self, check: Check) -> None:
+        self._checks.append(check)
+
+    def remove_check(self, check: Check) -> None:
+        if check in self._checks:
+            self._checks.remove(check)
+
+    async def checklist(self, guild: discord.Guild) -> list[tuple[bool, str]]:
+        items = []
+        for check in self._checks:
+            try:
+                result = await check(self.bot, guild)
+            except Exception:
+                log.exception("Panel check %r failed in guild %s", check, guild.id)
+                continue
+            if result is not None:
+                items.append(result)
+        return items
 
     @property
     def sections(self) -> list[PanelSection]:
@@ -100,6 +123,9 @@ class PanelService:
             ),
             discord.ui.Separator(),
         ]
+        checklist = await self.checklist(guild)
+        if checklist:
+            items += [discord.ui.TextDisplay(checklist_text(checklist)), discord.ui.Separator()]
         for section in self.sections:
             try:
                 status = await section.status(self.bot, guild)
@@ -163,3 +189,12 @@ class PanelService:
     async def _location(self, guild_id: int) -> tuple[int, int] | None:
         row = await self.bot.db.pool.fetchrow("SELECT channel_id, message_id FROM core.panels WHERE guild_id = $1", guild_id)
         return (row["channel_id"], row["message_id"]) if row else None
+
+
+def checklist_text(items: list[tuple[bool, str]]) -> str:
+    """The getting-started block: every item while some are left, one line once all are done."""
+    if all(done for done, _ in items):
+        return f"{style.OK} **Getting started: all set.**"
+    left = sum(1 for done, _ in items if not done)
+    lines = [f"{style.OK if done else '⬜'} {text}" for done, text in items]
+    return "\n".join([f"**Getting started** · {left} left", *lines])
