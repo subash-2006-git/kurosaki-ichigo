@@ -175,7 +175,7 @@ def _gradient(size: tuple[int, int], top: tuple[int, int, int], bottom: tuple[in
     column = Image.new("RGB", (1, 256))
     for y in range(256):
         t = y / 255
-        column.putpixel((0, y), tuple(round(a + (b - a) * t) for a, b in zip(top, bottom)))
+        column.putpixel((0, y), tuple(round(a + (b - a) * t) for a, b in zip(top, bottom, strict=True)))
     return column.resize(size, Image.Resampling.BICUBIC).convert("RGBA")
 
 

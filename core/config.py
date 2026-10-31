@@ -43,7 +43,14 @@ DEV_GUILD_ID = _int("DEV_GUILD_ID")
 SYNC_COMMANDS = _bool("SYNC_COMMANDS")
 # Keep the settings commands the control panel replaces (/config, /welcome, /setup, ...). Off = panel only.
 CONFIG_COMMANDS = _bool("CONFIG_COMMANDS")
-OWNER_ONLY = _bool("OWNER_ONLY", True)  # only the owners (OWNER_IDS) can use commands and the control panel
+ERROR_ALERTS = _bool("ERROR_ALERTS", True)  # send errors to the operators (DM) or ALERT_CHANNEL_ID
+ALERT_CHANNEL_ID = _int("ALERT_CHANNEL_ID")
+OWNER_ONLY = _bool("OWNER_ONLY", True)
+# Restoring a server's settings from the panel (core/backups.py): where the backup workflow runs,
+# a token that can read its artifacts (Actions: read), and the passphrase the backups use.
+BACKUP_REPO = _str("BACKUP_REPO")  # owner/repo
+GITHUB_TOKEN = _str("GITHUB_TOKEN")
+BACKUP_PASSPHRASE = _str("BACKUP_PASSPHRASE")  # only the owners (OWNER_IDS) can use commands and the control panel
 PREFIX = _str("PREFIX") or "!"  # for the few text commands (the voice commands); slash commands don't use it
 # Who counts as the bot owner (for /sync). Empty = the Discord application's owner or team.
 OWNER_IDS = frozenset(int(part) for part in _str("OWNER_IDS").replace(" ", "").split(",") if part.isdigit())

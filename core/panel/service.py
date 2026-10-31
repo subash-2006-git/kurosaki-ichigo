@@ -23,9 +23,10 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 SECTION_KEY_CHARS = "abcdefghijklmnopqrstuvwxyz_"
-WHO_CAN_USE = lambda: ("Only the server owner and the members they allow (🔐 Access) can use these buttons."  # noqa: E731
-                       if config.OWNER_ONLY
-                       else "Only members with **Manage Server** can use these buttons.")
+def who_can_use() -> str:
+    if config.OWNER_ONLY:
+        return "Only the server owner and the members they allow (🔐 Access) can use these buttons."
+    return "Only members with **Manage Server** can use these buttons."
 ROW_SIZE = 5  # buttons per row on the posted panel (Discord's maximum)
 
 # A getting-started item: (bot, guild) -> (done, text), or None when it doesn't apply to this server.
@@ -150,7 +151,7 @@ class PanelService:
             ]
         items += [
             discord.ui.Separator(),
-            discord.ui.TextDisplay(f"-# {WHO_CAN_USE()} "
+            discord.ui.TextDisplay(f"-# {who_can_use()} "
                                    "Editors open privately, so only you see them."),
         ]
         view = discord.ui.LayoutView(timeout=None)

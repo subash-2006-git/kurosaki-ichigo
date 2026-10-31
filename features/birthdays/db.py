@@ -50,6 +50,9 @@ class BirthdayDB:
         self._enabled = None
         return row
 
+    def forget(self, guild_id: int) -> None:
+        self._enabled = None  # reloaded on the next check
+
     async def enabled_settings(self) -> list[SimpleNamespace]:
         if self._enabled is None:
             rows = await self.pool.fetch("SELECT * FROM birthdays.settings WHERE enabled")

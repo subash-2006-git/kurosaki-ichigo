@@ -6,9 +6,9 @@ from PIL import Image
 from features.community.services import media
 from features.community.services.media import (
     InvalidMedia,
+    MediaStore,
     check_url_syntax,
     download_image,
-    MediaStore,
     inspect_image,
     is_public_address,
 )

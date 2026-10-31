@@ -1,8 +1,9 @@
-"""!disconnect all, !server-mute, !server-unmute, !server-deafen and !server-undeafen.
+"""!disconnect, !move, !server-mute, !server-unmute, !server-deafen and !server-undeafen.
 
-Each acts on everyone in a voice channel whose top role is below the bot's: the voice channel whose
-chat the command is typed in, or else the one the person running it is in. It skips the person
-running it, the server owner, and the roles and members picked in the control panel.
+Each acts on everyone in a voice channel whose top role is below the bot's (`all`, the default), or
+only on those with a given role (`@role`): the voice channel whose chat the command is typed in, or
+else the one the person running it is in. It skips the person running it, the server owner, and
+the roles and members picked in the control panel.
 """
 
 from __future__ import annotations
@@ -52,16 +53,22 @@ ACTIONS: dict[str, VoiceAction] = {
 }
 
 
+def move_action(destination: discord.VoiceChannel | discord.StageChannel) -> VoiceAction:
+    return VoiceAction("move_members", "➡️", "Moved", "", lambda m: True,
+                       lambda m, reason: m.move_to(destination, reason=reason))
+
+
 # ---- who it applies to (pure, tested) ----------------------------------------------------
 
 
-def plan(members, *, me, invoker_id: int, owner_id: int, settings, action: VoiceAction):
-    """Split the channel's members into (targets, skipped counts)."""
+def plan(members, *, me, invoker_id: int, owner_id: int, settings, action: VoiceAction, role_id: int | None = None):
+    """Split the channel's members into (targets, skipped counts). With `role_id`, members without
+    that role aren't part of it at all (not counted as skipped)."""
     targets = []
     skipped = {"you": 0, "exempt": 0, "above": 0, "already": 0}
     exempt_roles = set(settings.exempt_role_ids)
     for member in members:
-        if member.id == me.id:
+        if member.id == me.id or (role_id is not None and all(role.id != role_id for role in member.roles)):
             continue
         if member.id == invoker_id:
             skipped["you"] += 1
@@ -109,10 +116,19 @@ class VoiceControl(commands.Cog):
             raise commands.NoPrivateMessage()
         return True
 
-    @commands.command(name="disconnect", help="Disconnect everyone below my role from this voice channel")
+    @commands.command(name="disconnect", help="Disconnect everyone (all) or a role below my role from this voice channel")
     @commands.cooldown(1, 5, commands.BucketType.guild)
     async def disconnect(self, ctx: commands.Context, scope: str | None = None) -> None:
         await self.run(ctx, "disconnect", scope)
+
+    @commands.command(name="move", help="Move everyone (all) or a role below my role to another voice channel")
+    @commands.cooldown(1, 5, commands.BucketType.guild)
+    async def move(self, ctx: commands.Context, first: str | None = None, *, rest: str | None = None) -> None:
+        # !move <channel> · !move all <channel> · !move @role <channel> (channel: mention, ID or name)
+        if first is None:
+            raise commands.BadArgument(f"Use `{ctx.prefix}move all <voice channel>` or `{ctx.prefix}move @role <voice channel>`.")
+        scope, where = (None, first) if rest is None else (first, rest)
+        await self.run(ctx, "move", scope, destination=await self._voice_channel(ctx, where))
 
     @commands.command(name="server-mute", help="Server-mute everyone below my role in this voice channel")
     @commands.cooldown(1, 5, commands.BucketType.guild)
@@ -134,28 +150,38 @@ class VoiceControl(commands.Cog):
     async def server_undeafen(self, ctx: commands.Context, scope: str | None = None) -> None:
         await self.run(ctx, "server-undeafen", scope)
 
-    async def run(self, ctx: commands.Context, key: str, scope: str | None) -> None:
-        action = ACTIONS[key]
+    async def run(self, ctx: commands.Context, key: str, scope: str | None,
+                  destination: discord.VoiceChannel | discord.StageChannel | None = None) -> None:
         command = f"{ctx.prefix}{key}"
-        if scope is not None and scope.lower() != "all":
-            raise commands.BadArgument(f"Use `{command} all` (or just `{command}`).")
+        role = await self._scope(ctx, command, scope)
         channel = voice_channel_for(ctx)
         if channel is None:
             raise commands.BadArgument("Type this in a voice channel's chat, or join the voice channel first.")
+        action = move_action(destination) if key == "move" else ACTIONS[key]
         mine, theirs = channel.permissions_for(ctx.guild.me), channel.permissions_for(ctx.author)
         if not getattr(theirs, action.permission):
             raise commands.MissingPermissions([action.permission])
         if not getattr(mine, action.permission):
             raise commands.BotMissingPermissions([action.permission])
+        if destination is not None:
+            if destination.id == channel.id:
+                raise commands.BadArgument("They're already in that channel. Pick a different voice channel.")
+            if not destination.permissions_for(ctx.author).connect:
+                raise commands.BadArgument(f"You can't join {destination.mention} yourself, so you can't move people there.")
+            there = destination.permissions_for(ctx.guild.me)
+            if not (there.connect and there.move_members):
+                raise commands.BotMissingPermissions(["connect", "move_members"])
 
         settings = await self.bot.voicecontrol_db.settings(ctx.guild.id)
         targets, skipped = plan(channel.members, me=ctx.guild.me, invoker_id=ctx.author.id, owner_id=ctx.guild.owner_id,
-                                settings=settings, action=action)
+                                settings=settings, action=action, role_id=role.id if role else None)
         reason = f"{command} in #{channel.name} by {ctx.author} ({ctx.author.id})"
         failed = await self._apply(action, targets, reason)
 
         done = len(targets) - failed
-        text = f"{action.done} **{done}** member(s) in {channel.mention}."
+        who = f" with {role.mention}" if role else ""
+        where = f"from {channel.mention} to {destination.mention}" if destination else f"in {channel.mention}"
+        text = f"{action.done} **{done}** member(s){who} {where}."
         if extra := skipped_text(skipped, action):
             text += f"\n-# Skipped: {extra}."
         if failed:
@@ -163,8 +189,27 @@ class VoiceControl(commands.Cog):
         await ctx.reply(embed=style.ok(text) if done else style.warn(text), mention_author=False)
         if done:
             await send_log(self.bot, ctx.guild, style.info(f"{action.emoji} {command}",
-                                                           f"{action.done} {done} member(s) in {channel.mention}\n"
+                                                           f"{action.done} {done} member(s){who} {where}\n"
                                                            f"By {ctx.author.mention}"))
+
+    @staticmethod
+    async def _scope(ctx: commands.Context, command: str, scope: str | None) -> discord.Role | None:
+        """`all` (or nothing) = everyone; otherwise a role (mention, ID or name)."""
+        if scope is None or scope.lower() == "all":
+            return None
+        try:
+            return await commands.RoleConverter().convert(ctx, scope)
+        except commands.RoleNotFound:
+            raise commands.BadArgument(f"Use `{command} all` or `{command} @role`.") from None
+
+    @staticmethod
+    async def _voice_channel(ctx: commands.Context, text: str) -> discord.VoiceChannel | discord.StageChannel:
+        for converter in (commands.VoiceChannelConverter(), commands.StageChannelConverter()):
+            try:
+                return await converter.convert(ctx, text)
+            except commands.ChannelNotFound:
+                continue
+        raise commands.BadArgument(f"I can't find a voice channel called “{text}”. Mention it, or use its ID or exact name.")
 
     @staticmethod
     async def _apply(action: VoiceAction, targets: list[discord.Member], reason: str) -> int:

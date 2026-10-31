@@ -76,6 +76,9 @@ class RoleService:
                 self._milestones[guild_id] = cached
         return cached
 
+    def forget(self, guild_id: int) -> None:
+        self._changed(guild_id)
+
     def _changed(self, guild_id: int) -> None:
         self._versions[guild_id] += 1
         self._milestones.pop(guild_id, None)

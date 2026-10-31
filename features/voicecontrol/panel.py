@@ -34,8 +34,10 @@ class VoiceControlEditor(SectionEditor):
         )
         members.callback = self.pick_members
         intro = (f"## 🔊 Voice commands\nType these in a voice channel's chat, or anywhere while you're in the voice "
-                 f"channel. They act on everyone there whose highest role is below mine.\n"
-                 f"`{p}disconnect all` · `{p}server-mute` · `{p}server-unmute` · `{p}server-deafen` · `{p}server-undeafen`\n"
+                 f"channel. They act on everyone there whose highest role is below mine (`all`), or only on a role "
+                 f"(`@role`).\n"
+                 f"`{p}disconnect all` · `{p}move all #channel` · `{p}server-mute` · `{p}server-unmute` · "
+                 f"`{p}server-deafen` · `{p}server-undeafen`\n"
                  "-# Always skipped: whoever runs it and the server owner. Using them needs the matching permission "
                  "(Move, Mute or Deafen Members).")
         if missing:

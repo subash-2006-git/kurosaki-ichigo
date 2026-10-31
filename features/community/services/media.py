@@ -223,6 +223,10 @@ class MediaStore:
         self._cache.pop((guild_id, kind), None)
         await asyncio.to_thread(self._legacy_path(guild_id, kind).unlink, missing_ok=True)
 
+    def forget(self, guild_id: int) -> None:
+        for key in [k for k in self._cache if k[0] == guild_id]:
+            del self._cache[key]
+
     async def exists(self, guild_id: int, kind: Kind) -> bool:
         if (guild_id, kind) in self._cache:
             return True

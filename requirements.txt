@@ -5,4 +5,5 @@ aiohttp>=3.9
 python-dotenv>=1.0
 Pillow>=10.1
 fonttools>=4.40
+cryptography>=42  # reading the encrypted backups when restoring settings
 tzdata>=2024.1  # time zones for birthdays (Windows has none built in)

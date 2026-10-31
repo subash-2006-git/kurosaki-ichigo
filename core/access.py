@@ -34,6 +34,10 @@ class AccessStore:
             cached = self._cache[guild_id] = frozenset(ids or ())
         return cached
 
+    def forget(self, guild_id: int) -> None:
+        """Drop the cached settings (after a restore from backup)."""
+        self._cache.pop(guild_id, None)
+
     async def set_members(self, guild_id: int, user_ids: list[int]) -> None:
         if len(user_ids) > MAX_MEMBERS:
             raise ValueError(f"A server can allow at most {MAX_MEMBERS} members.")

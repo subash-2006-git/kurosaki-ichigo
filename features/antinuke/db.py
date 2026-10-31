@@ -48,3 +48,7 @@ class AntinukeDB:
         )
         self._cache.pop(guild_id, None)
         return await self.settings(guild_id)
+
+    def forget(self, guild_id: int) -> None:
+        """Drop the cached settings (after a restore from backup)."""
+        self._cache.pop(guild_id, None)

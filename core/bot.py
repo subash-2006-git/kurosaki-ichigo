@@ -13,8 +13,10 @@ from discord import app_commands
 from discord.ext import commands
 
 from core import config, errors, migrate
-from core.db import Database
 from core.access import NOT_ALLOWED, AccessStore, is_allowed
+from core.alerts import ErrorAlerts
+from core.backups import RestoreTarget
+from core.db import Database
 from core.interactions import CoreTree
 from core.ui import theme
 from core.ui.theme import ThemeStore
@@ -26,6 +28,7 @@ EXTENSIONS: tuple[str, ...] = (
     "core.cogs.system",
     "core.panel",
     "features.moderation",
+    "features.invites",
     "features.logging",
     "features.nickname",
     "features.community",
@@ -85,6 +88,9 @@ class Bot(commands.Bot):
         self.status_fields: list[StatusField] = []
         self.join_filters: list[JoinFilter] = []
         self.action_watchers: list[ActionWatcher] = []
+        self.alerts = ErrorAlerts(self)
+        # Tables that hold one server's settings, for restoring them from a backup (core/backups.py).
+        self.restore_targets: list[RestoreTarget] = []
         self.add_check(self._owner_only)
 
     async def _owner_only(self, ctx: commands.Context) -> bool:
@@ -94,6 +100,8 @@ class Bot(commands.Bot):
         return True
 
     async def setup_hook(self) -> None:
+        if config.ERROR_ALERTS:
+            self.alerts.start()
         await self.db.connect()
         await migrate.run(self.db)
         self.access = AccessStore(self.db.pool)
@@ -178,6 +186,7 @@ class Bot(commands.Bot):
                 log.exception("Action watcher %r failed", watcher)
 
     async def close(self) -> None:
+        self.alerts.stop()
         await super().close()
         await self.db.close()
 

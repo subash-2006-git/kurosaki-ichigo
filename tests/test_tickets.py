@@ -7,8 +7,18 @@ from types import SimpleNamespace
 import discord
 import pytest
 
-from features.tickets.buttons import (OpenTicketButton, RateTicketButton, channel_name, idle_step, is_staff,
-                                      opening_message, overwrites_for, rating_view, staff_role_ids, transcript_text)
+from features.tickets.buttons import (
+    OpenTicketButton,
+    RateTicketButton,
+    channel_name,
+    idle_step,
+    is_staff,
+    opening_message,
+    overwrites_for,
+    rating_view,
+    staff_role_ids,
+    transcript_text,
+)
 from features.tickets.db import MAX_TYPES, TicketDB
 from features.tickets.panel import TicketsEditor, rating_lines
 

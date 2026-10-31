@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from discord.ext import commands
 
+from core.backups import RestoreTarget
 from features.antinuke import panel
 from features.antinuke.db import AntinukeDB
 
@@ -19,6 +20,7 @@ COGS = ("antinuke",)
 
 async def setup(bot: Bot) -> None:
     bot.antinuke_db = AntinukeDB(bot.db.pool)
+    bot.restore_targets.append(RestoreTarget("antinuke.settings", "Anti-nuke settings", reset=bot.antinuke_db.forget))
     bot.panel.register(panel.SECTION)
     bot.panel.add_check(panel.check)
     for name in COGS:

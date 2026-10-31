@@ -48,6 +48,10 @@ class QuotesDB:
             self._cache[guild_id] = (row["enabled"], row["default_bits"]) if row else (True, 0)
         return self._cache[guild_id]
 
+    def forget(self, guild_id: int) -> None:
+        """Drop the cached settings (after a restore from backup)."""
+        self._cache.pop(guild_id, None)
+
     async def enabled(self, guild_id: int) -> bool:
         return (await self._load(guild_id))[0]
 

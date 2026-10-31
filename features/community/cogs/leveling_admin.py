@@ -9,6 +9,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from core.bot import Bot as CommunityBot
+from core.interactions import DEFER, defer, reply
 from core.ui.theme import brand
 from features.community.models import RoleMode
 from features.community.repositories import LevelRoleRepo
@@ -18,7 +19,6 @@ from features.community.services.roles import Milestone
 from features.community.utils.checks import channel_problem_reply, resolve_channel, role_problem
 from features.community.utils.placeholders import render
 from features.community.utils.views import ConfirmView, TemplateModal
-from core.interactions import DEFER, defer, reply
 
 log = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ class LevelingAdminCog(commands.Cog):
     async def enable(self, interaction: discord.Interaction) -> None:
         assert interaction.guild is not None
         config = await self.bot.guild_config.update(interaction.guild.id, leveling_enabled=True)
-        await reply(interaction, 
+        await reply(interaction,
             "✅ Leveling enabled. Members earn "
             f"{config.message_xp_min}–{config.message_xp_max} XP per message (at most once every "
             f"{seconds(config.message_xp_cooldown)}) and {config.voice_xp_amount} XP every "
@@ -81,7 +81,7 @@ class LevelingAdminCog(commands.Cog):
         assert interaction.guild is not None
         config = await self.bot.guild_config.get(interaction.guild.id)
         milestones = await self.bot.roles.milestones(interaction.guild.id)
-        await reply(interaction, 
+        await reply(interaction,
             embed=settings_embed(interaction.guild, config, milestones), ephemeral=True
         )
 
@@ -119,7 +119,7 @@ class LevelingAdminCog(commands.Cog):
     async def voice_xp(self, interaction: discord.Interaction, amount: app_commands.Range[int, 1, 100]) -> None:
         assert interaction.guild is not None
         config = await self.bot.guild_config.update(interaction.guild.id, voice_xp_amount=amount)
-        await reply(interaction, 
+        await reply(interaction,
             f"✅ Voice now earns {amount} XP every {seconds(config.voice_xp_interval)}.", ephemeral=True
         )
 
@@ -130,7 +130,7 @@ class LevelingAdminCog(commands.Cog):
     ) -> None:
         assert interaction.guild is not None
         config = await self.bot.guild_config.update(interaction.guild.id, voice_xp_interval=seconds_)
-        await reply(interaction, 
+        await reply(interaction,
             f"✅ Voice now earns {config.voice_xp_amount} XP every {seconds(seconds_)}.\n"
             "-# Voice XP is checked once a minute, so intervals are effectively rounded up to whole minutes.",
             ephemeral=True,
@@ -176,7 +176,7 @@ class LevelingAdminCog(commands.Cog):
     async def levelup(self, interaction: discord.Interaction, enabled: bool) -> None:
         assert interaction.guild is not None
         await self.bot.guild_config.update(interaction.guild.id, levelup_enabled=enabled)
-        await reply(interaction, 
+        await reply(interaction,
             f"✅ Level-up announcements turned {'on' if enabled else 'off'}.", ephemeral=True
         )
 
@@ -206,7 +206,7 @@ class LevelingAdminCog(commands.Cog):
             assert modal_interaction.guild is not None and isinstance(modal_interaction.user, discord.Member)
             await self.bot.guild_config.update(modal_interaction.guild.id, levelup_text=value)
             example = render(value, modal_interaction.user, level=5)
-            await reply(modal_interaction, 
+            await reply(modal_interaction,
                 f"✅ Level-up text saved. For you reaching level 5 it reads:\n\n{example}"[:MAX_CONTENT],
                 ephemeral=True,
             )
@@ -240,25 +240,25 @@ class LevelingAdminCog(commands.Cog):
                 await reply(interaction, f"❌ {problem}.", ephemeral=True)
                 return
             if interaction.user.id != guild.owner_id and role >= interaction.user.top_role:
-                await reply(interaction, 
+                await reply(interaction,
                     f"❌ {role.mention} is at or above your highest role, so you can't hand it out.", ephemeral=True
                 )
                 return
             existing = next((m for m in await self.bot.roles.milestones(guild.id) if m.role_id == role.id), None)
             if existing is not None and existing.level != level:
-                await reply(interaction, 
+                await reply(interaction,
                     f"❌ {role.mention} is already the level {existing.level} role.", ephemeral=True
                 )
                 return
         elif not guild.me.guild_permissions.manage_roles:
-            await reply(interaction, 
+            await reply(interaction,
                 "❌ I need the Manage Roles permission to create level roles.", ephemeral=True
             )
             return
 
         await self.bot.roles.set_milestone(guild.id, level, role.id if role else None)
         given = role.mention if role else f"a new **Level {level}** role (created the first time someone reaches it)"
-        await reply(interaction, 
+        await reply(interaction,
             f"✅ Members who reach level {level} get {given}.\n"
             "-# Members already past this level get it the next time they earn XP, "
             "or right away with `/leveling role sync`.",
@@ -272,7 +272,7 @@ class LevelingAdminCog(commands.Cog):
         if not await self.bot.roles.remove_milestone(interaction.guild.id, level):
             await reply(interaction, f"❌ There's no level role at level {level}.", ephemeral=True)
             return
-        await reply(interaction, 
+        await reply(interaction,
             f"✅ Level {level} no longer gives a role.\n"
             "-# Members who already have the role keep it. Remove or delete it in Server Settings → Roles if you want.",
             ephemeral=True,
@@ -283,7 +283,7 @@ class LevelingAdminCog(commands.Cog):
         assert interaction.guild is not None
         config = await self.bot.guild_config.get(interaction.guild.id)
         milestones = await self.bot.roles.milestones(interaction.guild.id)
-        await reply(interaction, 
+        await reply(interaction,
             embed=role_list_embed(interaction.guild, milestones, config.level_role_mode), ephemeral=True
         )
 
@@ -293,7 +293,7 @@ class LevelingAdminCog(commands.Cog):
     async def role_mode(self, interaction: discord.Interaction, mode: app_commands.Choice[str]) -> None:
         assert interaction.guild is not None
         await self.bot.guild_config.update(interaction.guild.id, level_role_mode=mode.value)
-        await reply(interaction, 
+        await reply(interaction,
             f"✅ Role mode: {mode.name}.\n-# Applied as members earn XP, or right away with `/leveling role sync`.",
             ephemeral=True,
         )
@@ -304,7 +304,7 @@ class LevelingAdminCog(commands.Cog):
         guild = interaction.guild
         assert guild is not None
         if not await self.bot.roles.milestones(guild.id):
-            await reply(interaction, 
+            await reply(interaction,
                 "There are no level roles yet. Add one with `/leveling role add`.", ephemeral=True
             )
             return
@@ -410,7 +410,7 @@ class LevelingAdminCog(commands.Cog):
             return
 
         view = ConfirmView(interaction.user.id, confirm_label=f"Reset {ranked:,} members")
-        await reply(interaction, 
+        await reply(interaction,
             f"⚠️ This deletes the XP and levels of **{ranked:,} member(s)** in **{guild.name}** and takes away "
             "their level roles. **It can't be undone.**\n-# This expires in 30 seconds.",
             view=view,

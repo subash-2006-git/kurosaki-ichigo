@@ -6,6 +6,7 @@ from features.moderation.utils import actions, embeds
 from features.moderation.utils.checks import hierarchy_error
 from features.moderation.utils.time import MAX_TIMEOUT, humanize, parse_duration
 
+
 def _reason():
     # A fresh decorator per command: describe() stores its dict on the function, so sharing one would leak.
     return app_commands.describe(reason="Shown in the mod-log, audit log and the user's DM")

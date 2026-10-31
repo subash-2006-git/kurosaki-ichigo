@@ -24,6 +24,7 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 | 💡 Suggestions | on/off, suggestions channel, a discussion thread on each suggestion |
 | 💬 Quote images | on/off, and the default look of new quotes (colour or grey avatar, side, light/dark, tinted with your theme colour) |
 | 🔊 Voice commands | roles and members the voice commands skip |
+| 💾 Backups | restore this server's settings from one of the daily backups (server owner only; needs `BACKUP_REPO`, `GITHUB_TOKEN`, `BACKUP_PASSPHRASE`) |
 | 🎫 Tickets | on/off, category for ticket channels, staff roles, transcripts channel, open tickets per member, ask for a reason, **Edit ticket message**, post the ticket button; **types** (own button, staff roles and category); closing quiet tickets; ratings and their averages |
 | 🧨 Anti-nuke | on/off, punishment (remove roles / kick / ban), undo the damage, block untrusted bots, block dangerous permissions, trusted people and roles, alerts channel, limits |
 | 🛡️ Moderation | mod-log / reports / alerts channels, punishment DMs, appeal link, automod filters and limits, banned words, allowed links, exemptions, escalation rules and how long warnings count, anti-raid (join floods, young accounts: kick or alert), raid mode and its automatic end |
@@ -38,7 +39,8 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 - **Suggestions:** `/suggest` posts the idea in the suggestions channel with 👍/👎 buttons (press again to take a vote back) and **Accept**/**Deny** buttons for staff with Manage Messages, who can add a reason. The member gets a DM with the decision, and voting closes. One suggestion per member per minute.
 - **Birthdays:** members save a day and month (no year) with `/birthday set`. Each day, at the chosen hour in the server's time zone, the bot posts the message for that day's birthdays and gives the birthday role (taken back the next day). 29 February birthdays are celebrated on the 28th in other years.
 - **Reminders:** anyone can set up to 25, from a minute to a year ahead. The bot pings them in the channel where they set it (or in DMs if they chose private, or the channel is gone) with a link back. Reminders are saved in the database, so restarts don't lose them.
-- **Voice commands** are text commands with the `!` prefix (change it with `PREFIX`). Type one in a voice channel's chat, or anywhere while you're in the voice channel. It acts on everyone there whose highest role is below the bot's, skipping whoever ran it, the server owner, and the roles and members picked in the panel. `all` is optional (`!server-mute` = `!server-mute all`). Each needs the matching permission in that channel, for you and the bot: Move Members to disconnect, Mute Members, Deafen Members. Results go to the mod-log. A server mute or deafen stays until removed, so `!server-unmute` / `!server-undeafen` undo it for everyone still in the channel.
+- **Invite tracking:** the bot works out which invite each member joined with (it needs **Manage Server** to read the invite list) and shows it in the join log as before. It now also saves it, so `/invites` can show who brought in whom. Rejoining counts once; joins it can't tell (vanity URL, Discovery, two invites used at once) aren't credited to anyone.
+- **Voice commands** are text commands with the `!` prefix (change it with `PREFIX`). Type one in a voice channel's chat, or anywhere while you're in the voice channel. It acts on everyone there whose highest role is below the bot's (`all`, optional: `!server-mute` = `!server-mute all`), or only on members with a role (`!server-mute @Guests`), skipping whoever ran it, the server owner, and the roles and members picked in the panel. `!move all #channel` (or `!move @role #channel`) moves them to another voice channel; the channel can be a mention, ID or exact name. Each needs the matching permission in that channel, for you and the bot: Move Members to disconnect or move (moving also needs Connect to the other channel), Mute Members, Deafen Members. Results go to the mod-log. A server mute or deafen stays until removed, so `!server-unmute` / `!server-undeafen` undo it for everyone still in the channel.
 - Level-up messages carry **📊 My rank** and **🏆 Leaderboard** buttons; mod-log cases carry **📜 History** and **↩️ Undo**; punishment DMs carry an **Appeal** button. All of these keep working after restarts.
 
 Settings commands the panel replaces (`/config`, `/welcome`, `/goodbye`, `/setup`, and the settings parts of `/leveling` and `/nick`) are hidden to keep the command list short; set `CONFIG_COMMANDS=true` to bring them back. The commands below are the ones that stay.
@@ -87,13 +89,15 @@ Most commands are slash commands; the voice commands are `!` text commands.
 | Punish | `/warn` `/warnings` `/delwarn` `/clearwarns` · `/timeout` `/untimeout` · `/kick` · `/ban` `/tempban` `/softban` `/unban` |
 | Cases | `/case` `/modlogs` `/reason` |
 | Raids | `/raidmode` |
-| Voice | `!disconnect all` · `!server-mute` `!server-unmute` · `!server-deafen` `!server-undeafen` (text commands, see below) |
+| Voice | `!disconnect all` · `!move all #channel` · `!server-mute` `!server-unmute` · `!server-deafen` `!server-undeafen`, each with `all` or `@role` (text commands, see below) |
+| Invites | `/invites` (top inviters) · `/invites member:` (who they brought in, how many are still here) |
 | Staff tools | `/note add` `list` `delete` · `/role add` `remove` `temp` · `/purge` `/slowmode` `/lock` `/unlock` `/lockdown` · `/userinfo` `/serverinfo` |
 | Reports | `/report` · right-click → Apps → **Report Message** / **Report User** (buttons in the report channel keep working after restarts) |
 | Nicknames | `/nick preview` `apply` `reset` `status` `stop` |
 | Embeds | `/embed create` |
 | Birthdays | `/birthday set` `remove` `upcoming` |
 | Reminders | `/remind me` (`when` like 10m, 2h, 1d12h or 3w; optional `private` for DMs) · `/remind list` · `/remind cancel` |
+| Starboard | `/starboard top` (most-starred members and messages) |
 | Leveling | `/rank` · `/leaderboard` · `/leveling xp set` `add` `reset` `reset-all` · `/leveling role sync` |
 | Settings | in `/panel` (with `CONFIG_COMMANDS=true` also `/config …`, `/welcome …`, `/goodbye …`, `/setup …` and the settings parts of `/leveling` and `/nick`) |
 
@@ -138,14 +142,20 @@ Switching from dev to production commands: guild copies synced while `DEV_GUILD_
 
 ## Backups
 
-`.github/workflows/backup.yml` dumps the bot's schemas every day at 03:00 UTC (and on demand: **Actions → Database backup → Run workflow**), encrypts the dump, and keeps it as a workflow artifact for 30 days. The repo is public, so backups are always encrypted.
+`.github/workflows/backup.yml` dumps the whole database (every schema) every day at 03:00 UTC (and on demand: **Actions → Database backup → Run workflow**), encrypts the dump, and keeps it as a workflow artifact for 30 days. The repo is public, so backups are always encrypted.
 
 **Setup (once):** GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**:
 
 - `DATABASE_URL`: the same Neon connection string the bot uses.
 - `BACKUP_PASSPHRASE`: a long random passphrase. **Store a copy somewhere safe**: without it a backup can't be read, and with it anyone holding the file can.
 
-**Restore:** download the artifact from the workflow run, unzip it, then (with an empty database, e.g. a new Neon branch):
+**Restore one server's settings (control panel):** the server owner opens **💾 Backups**, picks a backup and sees what it holds for the server, then confirms. Only settings tables are replaced (the ones each feature registers), in one transaction and only for that server: levels, cases, tickets and other records are left alone; counters such as case and ticket numbers keep the higher value, and live state (raid mode, today's birthdays) stays. Needs on the bot's host:
+
+- `BACKUP_REPO`: this repo, as `owner/repo`.
+- `GITHUB_TOKEN`: a fine-grained token for that repo with **Actions: Read-only** (to list and download the artifacts).
+- `BACKUP_PASSPHRASE`: the same passphrase as the workflow secret.
+
+**Restore everything:** download the artifact from the workflow run, unzip it, then (with an empty database, e.g. a new Neon branch):
 
 ```bash
 export BACKUP_PASSPHRASE='...'
@@ -167,6 +177,9 @@ See [`.env.example`](.env.example). Only `DISCORD_TOKEN` and `DATABASE_URL` are 
 | `PREFIX` | `!` | prefix for the text commands (the voice commands); mentioning the bot also works |
 | `CONFIG_COMMANDS` | `false` | `true` keeps the settings commands the panel replaces (`/config`, `/welcome`, `/goodbye`, `/setup`, most of `/leveling` and `/nick`) |
 | `OWNER_IDS` | — | the bot's operators, who can use it in every server: user IDs, comma-separated; empty = the app's owner or team |
+| `ERROR_ALERTS` | `true` | send errors to the operators (`OWNER_IDS`, or the app's owner/team) by DM: the same error at most once an hour, at most 10 alerts an hour |
+| `ALERT_CHANNEL_ID` | — | send error alerts to this channel instead of DMs |
+| `BACKUP_REPO` · `GITHUB_TOKEN` · `BACKUP_PASSPHRASE` | — | restoring settings from the panel (see **Backups**) |
 | `OWNER_ONLY` | `true` | in each server only the server owner and the members they allow (🔐 Access) can use commands and the panel; `false` = anyone with the needed permissions |
 | `DATABASE_SSL` | `require` | `disable` only for a local Postgres without TLS |
 | `PORT` | `8080` | web server (Render sets this) |
@@ -211,7 +224,7 @@ Features plug into core through small hooks on the bot instead of importing each
 
 Add a new file `migrations/NNNN_description.sql` with the next number. Never edit a migration that has already run; the runner logs a warning if an applied file changes. Migrations run at startup inside one transaction, under a lock, so two instances starting together can't both apply them.
 
-## Tests
+## Tests and lint
 
 GitHub Actions runs the whole suite on every push (`.github/workflows/tests.yml`). To make Render deploy only commits that pass, set the service's **Auto-Deploy** to **After CI checks pass**.
 
@@ -219,5 +232,7 @@ GitHub Actions runs the whole suite on every push (`.github/workflows/tests.yml`
 pip install -r requirements-dev.txt
 pytest
 ```
+
+Lint with `ruff check .` (settings in `ruff.toml`; `ruff check --fix .` fixes most findings). The Tests workflow runs both on every push and pull request. Dependabot (`.github/dependabot.yml`) opens a weekly pull request for library and GitHub Actions updates, so each update is tested before it's merged.
 
 About 500 tests. The community tests start an embedded Postgres ([pgserver](https://pypi.org/project/pgserver/)), give every test a fresh database with all migrations applied, and never touch Neon.

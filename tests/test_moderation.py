@@ -5,11 +5,11 @@ from types import SimpleNamespace
 import discord
 import pytest
 
-from features.moderation.cogs.antiraid import AntiRaid
 from features.moderation.case_buttons import HistoryButton, UndoButton, case_view, history_lines
+from features.moderation.cogs.antiraid import AntiRaid
 from features.moderation.cogs.automod import AutoMod
-from features.moderation.panel import _number
 from features.moderation.db import ModerationDB
+from features.moderation.panel import _number
 from features.moderation.utils.guild_cache import DEFAULT_AUTOMOD, DEFAULT_RAID, GuildCache, _merge
 from features.moderation.utils.modlog import appeal_view, case_embed
 from features.moderation.utils.time import humanize, parse_duration

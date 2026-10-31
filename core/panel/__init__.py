@@ -8,8 +8,9 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from core.panel import access, appearance
-from core.panel.service import WHO_CAN_USE, PanelEntry, PanelSection, PanelService
+from core.backups import RestoreTarget
+from core.panel import access, appearance, backups
+from core.panel.service import PanelEntry, PanelSection, PanelService, who_can_use
 from core.ui import style
 
 if TYPE_CHECKING:
@@ -40,7 +41,7 @@ class Panel(commands.Cog):
         await interaction.followup.send(
             embed=style.ok(
                 f"Control panel posted in {target.mention}: {message.jump_url}\n"
-                f"{WHO_CAN_USE()} Any older panel was removed."
+                f"{who_can_use()} Any older panel was removed."
             ),
             ephemeral=True,
         )
@@ -63,6 +64,13 @@ async def setup(bot: Bot) -> None:
         key="appearance", label="Appearance", emoji=style.PALETTE, order=90,
         status=appearance.status, open=appearance.AppearanceEditor.open,
     ))
+    bot.panel.register(PanelSection(
+        key="backups", label="Backups", emoji="💾", order=95, status=backups.status, open=backups.BackupsEditor.open,
+    ))
+    bot.restore_targets += [
+        RestoreTarget("core.guild_theme", "Theme colour and footer", reset=lambda guild_id: bot.theme.load()),
+        RestoreTarget("core.access", "Who can use the bot", reset=bot.access.forget),
+    ]
     await bot.add_cog(Panel(bot))
 
 

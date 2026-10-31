@@ -1,0 +1,19 @@
+# Weekly pull requests for library and GitHub Actions updates. The Tests workflow runs on each one,
+# so a failing update shows up as a red check instead of a broken deploy.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      python:
+        patterns: ["*"]
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

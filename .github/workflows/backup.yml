@@ -2,7 +2,8 @@
 # Needs two repository secrets (Settings → Secrets and variables → Actions):
 #   DATABASE_URL       the same Neon connection string the bot uses
 #   BACKUP_PASSPHRASE  a long random passphrase; keep a copy somewhere safe, backups can't be read without it
-# The repo is public, so backups are encrypted before upload. Restore steps are in README.md → Backups.
+# The repo is public, so backups are encrypted before upload. Restore steps are in README.md → Backups;
+# a single server's settings can also be restored from the control panel (💾 Backups).
 name: Database backup
 
 on:
@@ -39,8 +40,8 @@ jobs:
           echo "::add-mask::$url"
           name="backup-$(date -u +%Y-%m-%dT%H%MZ).sql.gz.enc"
           # postgres:18 matches Neon's server version (pg_dump must not be older than the server).
+          # Every schema, so features added later are backed up too (the bot restores settings from these).
           docker run --rm postgres:18 pg_dump --no-owner --no-privileges \
-            -n core -n community -n moderation -n nickname -n logging -n tickets -n antinuke \
             "$url" \
             | gzip -9 \
             | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:BACKUP_PASSPHRASE -out "$name"

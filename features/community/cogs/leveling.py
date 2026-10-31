@@ -15,13 +15,13 @@ from discord import app_commands
 from discord.ext import commands
 
 from core.bot import Bot as CommunityBot
+from core.interactions import EPHEMERAL, defer, reply
 from features.community.models import XpSource
 from features.community.services.cards import render_rank_card
 from features.community.services.greeting import avatar_bytes
 from features.community.services.leveling import RankInfo, progress
 from features.community.services.xp_rules import boost_multiplier, is_no_xp
 from features.community.utils.cooldowns import Cooldowns
-from core.interactions import EPHEMERAL, defer, reply
 
 log = logging.getLogger(__name__)
 
@@ -90,7 +90,7 @@ class LevelingCog(commands.Cog):
         target = member or interaction.user
         config = await self.bot.guild_config.get(interaction.guild.id)
         if not config.leveling_enabled:
-            await reply(interaction, 
+            await reply(interaction,
                 "Leveling isn't turned on in this server. A server manager can enable it with `/leveling enable`.",
                 ephemeral=True,
             )

@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 import discord
 from discord import app_commands
 
+from core.interactions import DEFER, defer, reply
 from core.ui.theme import brand
 from features.community.services.greeting import MAX_CONTENT, build_greeting, greeting_settings, render_card
 from features.community.services.guild_config import GuildConfig
@@ -26,7 +27,6 @@ from features.community.services.media import (
 from features.community.utils.checks import channel_problem_reply, resolve_channel
 from features.community.utils.placeholders import help_text, render
 from features.community.utils.views import TemplateModal
-from core.interactions import DEFER, defer, reply
 
 if TYPE_CHECKING:
     from core.bot import Bot as CommunityBot
@@ -198,7 +198,7 @@ class GreetingGroup(app_commands.Group):
             assert modal_interaction.guild is not None and isinstance(modal_interaction.user, discord.Member)
             await self.bot.guild_config.update(modal_interaction.guild.id, **{self._field("text"): value})
             example = render(value, modal_interaction.user)
-            await reply(modal_interaction, 
+            await reply(modal_interaction,
                 f"✅ {self.title} text saved. With you as {ROLE_IN_PREVIEW[self.kind]} it reads:\n\n{example}"[
                     :MAX_CONTENT
                 ],
@@ -226,7 +226,7 @@ class GreetingGroup(app_commands.Group):
         if url is None and file is None:
             await self.bot.media.delete(interaction.guild.id, self.kind)
             await self.bot.guild_config.update(interaction.guild.id, **{self._field("gif_url"): None})
-            await reply(interaction, 
+            await reply(interaction,
                 "✅ Background removed. The card uses the default gradient again.", ephemeral=True
             )
             return
@@ -254,7 +254,7 @@ class GreetingGroup(app_commands.Group):
     async def card(self, interaction: discord.Interaction, enabled: bool) -> None:
         assert interaction.guild is not None
         await self.bot.guild_config.update(interaction.guild.id, **{self._field("card_enabled"): enabled})
-        await reply(interaction, 
+        await reply(interaction,
             f"✅ {self.title} card turned {'on' if enabled else 'off'}.", ephemeral=True
         )
 
@@ -264,12 +264,12 @@ class GreetingGroup(app_commands.Group):
         config = await self.bot.guild_config.get(interaction.guild.id)
         channel, problem = resolve_channel(interaction.guild, greeting_settings(config, self.kind).channel_id)
         if channel is None or problem:
-            await reply(interaction, 
+            await reply(interaction,
                 f"❌ Can't enable yet: {problem}. Set one with `/{self.kind} channel`.", ephemeral=True
             )
             return
         await self.bot.guild_config.update(interaction.guild.id, **{self._field("enabled"): True})
-        await reply(interaction, 
+        await reply(interaction,
             f"✅ {self.title} messages enabled in {channel.mention}.", ephemeral=True
         )
 
@@ -312,7 +312,7 @@ class GreetingGroup(app_commands.Group):
         assert interaction.guild is not None
         config = await self.bot.guild_config.get(interaction.guild.id)
         stored = await self.bot.media.exists(interaction.guild.id, self.kind)
-        await reply(interaction, 
+        await reply(interaction,
             embed=settings_embed(interaction.guild, config, self.kind, stored), ephemeral=True
         )
 
@@ -345,7 +345,7 @@ class GoodbyeDmGroup(app_commands.Group):
             assert modal_interaction.guild is not None and isinstance(modal_interaction.user, discord.Member)
             await self.bot.guild_config.update(modal_interaction.guild.id, goodbye_dm_text=value)
             example = render(value, modal_interaction.user)
-            await reply(modal_interaction, 
+            await reply(modal_interaction,
                 f"✅ Goodbye DM text saved. With you as the member leaving it reads:\n\n{example}"[:MAX_CONTENT],
                 ephemeral=True,
             )

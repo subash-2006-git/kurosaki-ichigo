@@ -107,9 +107,61 @@ async def test_permissions_and_scope_are_checked(monkeypatch):
     perms["author"].move_members, perms["me"].move_members = True, False
     with pytest.raises(commands.BotMissingPermissions):
         await cog.run(ctx, "disconnect", None)
-    with pytest.raises(commands.BadArgument, match="!disconnect all"):
-        await cog.run(ctx, "disconnect", "everyone")
+    async def no_role(self, ctx, argument):
+        raise commands.RoleNotFound(argument)
+
+    monkeypatch.setattr(commands.RoleConverter, "convert", no_role)
+    with pytest.raises(commands.BadArgument, match="!disconnect all` or `!disconnect @role"):
+        await cog.run(ctx, "disconnect", "nobody")
     assert all(m.calls == [] for m in targets)
+
+
+def test_plan_with_a_role_only_counts_its_members():
+    members = [member(2, roles=[80]), member(3), member(4, roles=[80], position=20), member(7, roles=[80])]
+    targets, skipped = plan(members, me=ME, invoker_id=7, owner_id=9, settings=SETTINGS, action=ACTIONS["disconnect"],
+                            role_id=80)
+    assert [m.id for m in targets] == [2]
+    assert skipped == {"you": 1, "exempt": 0, "above": 1, "already": 0}  # member 3 isn't part of it at all
+
+
+MENTIONS = {100: "#source", 200: "#target"}
+
+
+def voice(id_):
+    channel = discord.VoiceChannel.__new__(discord.VoiceChannel)
+    channel.id = id_
+    return channel
+
+
+async def test_move_role_to_another_channel(monkeypatch):
+    cog, ctx, _, perms, targets, logged = setup_run()
+    source, destination = voice(100), voice(200)
+    ctx.channel = source
+    targets[0].roles.append(SimpleNamespace(id=80))
+    perms["me"].connect = perms["author"].connect = True
+    monkeypatch.setattr(discord.VoiceChannel, "permissions_for", lambda self, who: perms["me" if who is ME else "author"])
+    monkeypatch.setattr(discord.VoiceChannel, "members", property(lambda self: targets))
+    monkeypatch.setattr(discord.VoiceChannel, "mention", property(lambda self: MENTIONS[self.id]))
+    monkeypatch.setattr(discord.VoiceChannel, "name", "source", raising=False)
+    role = SimpleNamespace(id=80, mention="<@&80>")
+
+    async def find_role(self, ctx, argument):
+        return role
+
+    async def log(bot, guild, embed):
+        logged.append(embed.description)
+
+    monkeypatch.setattr(commands.RoleConverter, "convert", find_role)
+    monkeypatch.setattr("features.voicecontrol.cog.send_log", log)
+    await cog.run(ctx, "move", "@Guests", destination=destination)
+    assert targets[0].calls == [("move", destination)] and targets[1].calls == []
+    assert ctx.replies == ["✅ Moved **1** member(s) with <@&80> from #source to #target."]
+
+    with pytest.raises(commands.BadArgument, match="already in that channel"):
+        await cog.run(ctx, "move", "all", destination=source)
+    perms["author"].connect = False
+    with pytest.raises(commands.BadArgument, match="can't join"):
+        await cog.run(ctx, "move", "all", destination=destination)
 
 
 def test_prefix_error_messages():

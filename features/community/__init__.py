@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import aiohttp
 from discord.ext import commands
 
+from core.backups import RestoreTarget
 from core.commands import hide
 from core.interactions import DEFER
 from features.community import panel
@@ -38,6 +39,11 @@ async def setup(bot: Bot) -> None:
     bot.media = MediaStore(bot.community_db)
     bot.leveling = LevelingService(bot.community_db)
     bot.roles = RoleService(bot.community_db, bot.guild_config)
+    bot.restore_targets += [
+        RestoreTarget("community.guild_settings", "Welcome, goodbye and leveling settings", reset=bot.guild_config.invalidate),
+        RestoreTarget("community.level_roles", "Level roles", reset=bot.roles.forget),
+        RestoreTarget("community.guild_media", "Card backgrounds", reset=bot.media.forget),
+    ]
     bot.levelups = LevelUpService(bot.guild_config, bot.roles, brand=bot.theme.brand)
     bot.add_dynamic_items(RankButton, LeaderboardButton)
     for section in panel.SECTIONS:

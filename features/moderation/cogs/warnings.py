@@ -6,6 +6,7 @@ from features.moderation.utils import actions, embeds
 from features.moderation.utils.checks import hierarchy_error
 from features.moderation.utils.modlog import send_log
 
+
 class Warnings(commands.Cog):
     def __init__(self, bot):
         self.bot = bot

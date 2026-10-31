@@ -115,7 +115,7 @@ class SectionEditor(discord.ui.LayoutView):
             return
         closed = discord.ui.LayoutView()
         closed.add_item(discord.ui.Container(
-            discord.ui.TextDisplay(f"{style.OFF} This editor closed after 10 minutes. Press **Open** on the panel again."),
+            discord.ui.TextDisplay(f"{style.OFF} This editor closed after 10 minutes. Press its button on the panel again."),
         ))
         try:
             await self.last_interaction.edit_original_response(view=closed)

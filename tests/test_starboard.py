@@ -4,6 +4,7 @@ import pytest
 
 from features.starboard.board import decide, first_image
 from features.starboard.db import StarboardDB
+from features.starboard.leaderboard import leaderboard_embed
 from features.starboard.panel import parse_emoji
 
 
@@ -49,3 +50,18 @@ async def test_db(core_db):
     assert (e.star_message_id, e.stars) == (501, 6) and len(await db.entries_by_author(7)) == 1
     await db.delete_entry(100)
     assert await db.entry(100) is None
+
+
+async def test_leaderboard(core_db):
+    db = StarboardDB(core_db.pool)
+    for message_id, author, stars in ((1, 7, 5), (2, 7, 3), (3, 8, 6), (4, 9, 2)):
+        await db.save_entry(message_id, 1, 50, author, 1000 + message_id, stars)
+    await db.save_entry(5, 2, 50, 9, 1005, 99)  # another server
+    authors = await db.top_authors(1)
+    assert [(a.author_id, a.stars, a.posts) for a in authors] == [(7, 8, 2), (8, 6, 1), (9, 2, 1)]
+    assert [m.message_id for m in await db.top_messages(1, limit=2)] == [3, 1]
+
+    embed = leaderboard_embed(authors, await db.top_messages(1, limit=2), "⭐", 1)
+    assert embed.fields[0].value.splitlines()[0] == "🥇 <@7> · **8** ⭐ (2 posts)"
+    assert embed.fields[1].value.splitlines()[0] == "**6** ⭐ · <@8> · [jump](https://discord.com/channels/1/50/3)"
+    assert leaderboard_embed([], [], "⭐", 1).description == "Nothing on the board yet."

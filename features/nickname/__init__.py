@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING
 
 from discord.ext import commands
 
+from core.backups import RestoreTarget
 from core.commands import hide
-
 from features.nickname import panel
 from features.nickname.db import NicknameDB
 from features.nickname.services.job_manager import JobManager
@@ -25,6 +25,7 @@ COGS = ("nickname_commands", "member_events", "embed_builder")
 
 async def setup(bot: Bot) -> None:
     bot.nick_db = NicknameDB(bot.db.pool)
+    bot.restore_targets.append(RestoreTarget("nickname.guild_settings", "Nickname settings"))
     if interrupted := await bot.nick_db.mark_interrupted_jobs():
         log.info("Marked %d nickname job(s) interrupted by the last shutdown", interrupted)
     bot.loop.create_task(_late_sweep(bot), name="nickname-late-sweep")

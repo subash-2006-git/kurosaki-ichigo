@@ -38,6 +38,10 @@ class StarboardDB:
         self._cache.pop(guild_id, None)
         return await self.settings(guild_id)
 
+    def forget(self, guild_id: int) -> None:
+        """Drop the cached settings (after a restore from backup)."""
+        self._cache.pop(guild_id, None)
+
     async def entry(self, message_id: int) -> SimpleNamespace | None:
         row = await self.pool.fetchrow("SELECT * FROM starboard.entries WHERE message_id = $1", message_id)
         return SimpleNamespace(**dict(row)) if row else None
@@ -56,4 +60,20 @@ class StarboardDB:
 
     async def entries_by_author(self, author_id: int) -> list[SimpleNamespace]:
         rows = await self.pool.fetch("SELECT * FROM starboard.entries WHERE author_id = $1", author_id)
+        return [SimpleNamespace(**dict(r)) for r in rows]
+
+    async def top_authors(self, guild_id: int, limit: int = 10) -> list[SimpleNamespace]:
+        """Members whose messages made it to the board, by total stars."""
+        rows = await self.pool.fetch(
+            "SELECT author_id, SUM(stars)::int AS stars, COUNT(*)::int AS posts FROM starboard.entries "
+            "WHERE guild_id = $1 GROUP BY author_id ORDER BY SUM(stars) DESC, COUNT(*) DESC LIMIT $2",
+            guild_id, limit,
+        )
+        return [SimpleNamespace(**dict(r)) for r in rows]
+
+    async def top_messages(self, guild_id: int, limit: int = 5) -> list[SimpleNamespace]:
+        rows = await self.pool.fetch(
+            "SELECT * FROM starboard.entries WHERE guild_id = $1 ORDER BY stars DESC, message_id DESC LIMIT $2",
+            guild_id, limit,
+        )
         return [SimpleNamespace(**dict(r)) for r in rows]

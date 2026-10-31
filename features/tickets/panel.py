@@ -133,7 +133,8 @@ class TicketsEditor(SectionEditor):
             self.toggle("Ask for a reason", s.ask_reason, self.flip("ask_reason"), description="A short form before the ticket opens."),
             discord.ui.Separator(),
             self.row(self.button("Edit ticket message", self.edit_message, emoji="✏️", style_=discord.ButtonStyle.primary)),
-            self.text(f"**Ticket button** · {'posted in ' + _mention(self.guild, s.panel_channel_id) if s.panel_message_id else 'not posted yet'}"),
+            self.text("**Ticket button** · "
+                      + (f"posted in {_mention(self.guild, s.panel_channel_id)}" if s.panel_message_id else "not posted yet")),
             self.row(post),
         ]
 

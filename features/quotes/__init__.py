@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from core.backups import RestoreTarget
 from features.quotes import panel
 from features.quotes.cog import ConversationButton, QuoteButton, Quotes, QuotesDB
 
@@ -13,6 +14,7 @@ if TYPE_CHECKING:
 
 async def setup(bot: Bot) -> None:
     bot.quotes_db = QuotesDB(bot.db.pool)
+    bot.restore_targets.append(RestoreTarget("quotes.settings", "Quote settings", reset=bot.quotes_db.forget))
     bot.add_dynamic_items(QuoteButton, ConversationButton)
     bot.panel.register(panel.SECTION)
     await bot.add_cog(Quotes(bot))

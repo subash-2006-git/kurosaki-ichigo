@@ -12,9 +12,9 @@ from discord.ext import commands
 from discord.utils import escape_markdown
 
 from core.bot import Bot as CommunityBot
+from core.interactions import EPHEMERAL, reply
 from core.ui.theme import brand
 from features.community.services.leveling import LeaderboardEntry
-from core.interactions import EPHEMERAL, defer, reply
 
 log = logging.getLogger(__name__)
 
@@ -121,7 +121,7 @@ class LeaderboardCog(commands.Cog):
         assert guild is not None
         config = await self.bot.guild_config.get(guild.id)
         if not config.leveling_enabled:
-            await reply(interaction, 
+            await reply(interaction,
                 "Leveling isn't turned on in this server. A server manager can enable it with `/leveling enable`.",
                 ephemeral=True,
             )

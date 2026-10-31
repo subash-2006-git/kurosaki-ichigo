@@ -55,6 +55,9 @@ class TicketDB:
             guild_id, *fields.values(),
         ))
 
+    def forget(self, guild_id: int) -> None:
+        self.idle_on = None  # re-checked by the auto-close loop
+
     # --- tickets ----------------------------------------------------------------
 
     async def next_number(self, guild_id: int) -> int:

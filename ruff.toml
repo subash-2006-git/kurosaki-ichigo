@@ -1,0 +1,12 @@
+# Lint settings (run: ruff check .). CI runs this on every push.
+line-length = 140
+target-version = "py311"
+extend-exclude = ["venv", "logs"]
+
+[lint]
+# pycodestyle errors/warnings, pyflakes, import order, bugbear
+select = ["E", "F", "W", "I", "B"]
+
+[lint.per-file-ignores]
+# small lambdas as stand-ins are fine in tests
+"tests/**" = ["E731"]

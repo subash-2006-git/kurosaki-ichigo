@@ -1,7 +1,5 @@
 import re
 
-import pytest
-
 from core.panel.service import checklist_text
 from features.selfroles.buttons import SelfRoleButton
 from features.selfroles.db import SelfRolesDB

@@ -6,14 +6,12 @@ import asyncio
 import datetime
 import enum
 import logging
-from collections import defaultdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Iterable
 
 import discord
 from discord.ext import commands
 
-from features.logging import settings as config
 from features.logging.services.audit_handler import audit_actions, changed_keys, safe_changes, safe_target
 from features.logging.services.log_router import UNAVAILABLE, LogFile, add_field, format_duration, make_embed, show_user, truncate
 
@@ -233,8 +231,6 @@ class LoggingEvents(commands.Cog):
         self.bot = bot
         self.router = bot.log_router
         self.audit = bot.audit
-        self._invites: dict[int, dict[str, int]] = {}
-        self._invite_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
         self._voice_sessions: dict[tuple[int, int], VoiceSession] = {}
 
     def enabled(self, guild: discord.Guild | None) -> bool:
@@ -276,12 +272,6 @@ class LoggingEvents(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self) -> None:
         self._sync_voice_sessions()
-        for guild in self.bot.guilds:
-            await self._cache_invites(guild)
-
-    @commands.Cog.listener()
-    async def on_guild_join(self, guild: discord.Guild) -> None:
-        await self._cache_invites(guild)
 
     # --- audit log entries -----------------------------------------------------
 
@@ -339,38 +329,6 @@ class LoggingEvents(commands.Cog):
 
     # --- members: join / leave -------------------------------------------------
 
-    async def _cache_invites(self, guild: discord.Guild) -> None:
-        if not guild.me.guild_permissions.manage_guild:
-            return
-        try:
-            invites = await guild.invites()
-        except discord.HTTPException:
-            return
-        self._invites[guild.id] = {i.code: i.uses or 0 for i in invites}
-
-    async def _detect_invite(self, guild: discord.Guild) -> tuple[str, discord.Invite | None]:
-        if not guild.me.guild_permissions.manage_guild:
-            return "Unavailable *(bot lacks Manage Server)*", None
-        async with self._invite_locks[guild.id]:
-            previous = self._invites.get(guild.id)
-            try:
-                invites = await guild.invites()
-            except discord.HTTPException:
-                return "Unavailable *(couldn't fetch invites)*", None
-            self._invites[guild.id] = {i.code: i.uses or 0 for i in invites}
-        if previous is None:
-            return "Unknown *(invite list was still loading)*", None
-        used = [i for i in invites if (i.uses or 0) > previous.get(i.code, 0)]
-        if len(used) == 1:
-            invite = used[0]
-            inviter = f" by {invite.inviter.mention}" if invite.inviter else ""
-            return f"`{invite.code}`{inviter}", invite
-        if len(used) > 1:
-            return "Ambiguous *(several invites were used at the same time)*", None
-        if guild.vanity_url_code:
-            return f"Unknown *(possibly the vanity URL `{guild.vanity_url_code}`, Discovery, or a single-use invite)*", None
-        return "Unknown *(possibly Discovery or a single-use invite)*", None
-
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member) -> None:
         guild = member.guild
@@ -387,7 +345,9 @@ class LoggingEvents(commands.Cog):
             self.send(guild, "bot", embed)
             return
 
-        invite_text, invite = await self._detect_invite(guild)
+        # The invites feature works out which invite was used (one detection per join, shared).
+        result = await self.bot.invite_tracker.lookup(member)
+        invite_text, invite = result.text, result.invite
         embed = make_embed("join_leave", "📥 Member Joined", colour=discord.Colour.green())
         add_field(embed, "Member", user_text(member))
         add_field(embed, "Account created", time_text(member.created_at))
@@ -928,8 +888,6 @@ class LoggingEvents(commands.Cog):
         guild = invite.guild
         if not isinstance(guild, discord.Guild):
             return
-        if guild.id in self._invites:
-            self._invites[guild.id][invite.code] = invite.uses or 0
         if not self.enabled(guild):
             return
         embed = make_embed("invite", "🔗 Invite Created", colour=discord.Colour.green())
@@ -947,7 +905,6 @@ class LoggingEvents(commands.Cog):
         guild = invite.guild
         if not isinstance(guild, discord.Guild):
             return
-        self._invites.get(guild.id, {}).pop(invite.code, None)
         if not self.enabled(guild):
             return
         entry = await self.audit.find(

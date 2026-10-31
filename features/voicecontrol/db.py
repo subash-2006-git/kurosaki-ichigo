@@ -23,6 +23,10 @@ class VoiceControlDB:
                 guild_id=guild_id, exempt_role_ids=[], exempt_user_ids=[])
         return cached
 
+    def forget(self, guild_id: int) -> None:
+        """Drop the cached settings (after a restore from backup)."""
+        self._cache.pop(guild_id, None)
+
     async def update(self, guild_id: int, **fields: Any) -> SimpleNamespace:
         unknown = set(fields) - COLUMNS
         if unknown:

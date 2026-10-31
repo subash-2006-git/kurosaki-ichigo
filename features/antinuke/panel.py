@@ -143,7 +143,7 @@ class AntinukeEditor(SectionEditor):
 
             async def save(modal_interaction: discord.Interaction, values: list[str]) -> None:
                 limits = {k: dict(v) for k, v in s.limits.items()}
-                for action, text in zip(actions, values):
+                for action, text in zip(actions, values, strict=True):
                     limits[action] = parse_limit(text, ACTION_LABELS[action])
                 await self.bot.antinuke_db.update(self.guild.id, limits=limits)
                 await self.rerender(modal_interaction)

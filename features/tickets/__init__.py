@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING
 import discord
 from discord.ext import commands, tasks
 
+from core.backups import RestoreTarget
 from core.ui import style
 from core.ui.theme import brand
 from features.tickets import panel
-from features.tickets.buttons import (ClaimTicketButton, CloseTicketButton, OpenTicketButton, RateTicketButton,
-                                      close_ticket, idle_step)
+from features.tickets.buttons import ClaimTicketButton, CloseTicketButton, OpenTicketButton, RateTicketButton, close_ticket, idle_step
 from features.tickets.db import TicketDB
 
 if TYPE_CHECKING:
@@ -83,6 +83,10 @@ class Tickets(commands.Cog):
 
 async def setup(bot: Bot) -> None:
     bot.tickets_db = TicketDB(bot.db.pool)
+    bot.restore_targets += [
+        RestoreTarget("tickets.settings", "Ticket settings", keep_max=("counter",), reset=bot.tickets_db.forget),
+        RestoreTarget("tickets.types", "Ticket types"),
+    ]
     bot.add_dynamic_items(*BUTTONS)
     bot.panel.register(panel.SECTION)
     bot.panel.add_check(panel.check)

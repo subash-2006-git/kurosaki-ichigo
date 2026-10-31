@@ -13,7 +13,6 @@ from core.panel.service import PanelSection
 from core.ui import style
 from core.ui.embed_draft import EmbedDraft
 from core.ui.embed_editor import EmbedEditor
-from features.moderation.utils.time import parse_duration
 from features.community.models import RoleMode
 from features.community.services.greeting import MAX_CONTENT, build_greeting, greeting_settings
 from features.community.services.media import (
@@ -37,6 +36,7 @@ from features.community.services.messages import (
 from features.community.services.xp_rules import boost_multiplier
 from features.community.utils.checks import role_problem
 from features.community.utils.placeholders import help_text
+from features.moderation.utils.time import parse_duration
 
 if TYPE_CHECKING:
     from core.bot import Bot
@@ -85,7 +85,8 @@ def boost_text(config) -> str:
     multiplier = boost_multiplier(config)
     if multiplier == 1:
         return "No boost running. Start one for double (or more) XP for a while."
-    return f"{multiplier}× XP until {discord.utils.format_dt(config.xp_boost_until, 'f')} ({discord.utils.format_dt(config.xp_boost_until, 'R')})"
+    until = config.xp_boost_until
+    return f"{multiplier}× XP until {discord.utils.format_dt(until, 'f')} ({discord.utils.format_dt(until, 'R')})"
 
 
 # ---- the embed editor for stored messages ---------------------------------------------
@@ -443,7 +444,8 @@ class LevelingEditor(SectionEditor):
         lines = []
         for m in milestones:
             role = self.guild.get_role(m.role_id) if m.role_id else None
-            lines.append(f"Level **{m.level}** → {role.mention if role else '*a new “Level ' + str(m.level) + '” role, created on first use*'}")
+            target = role.mention if role else f"*a new “Level {m.level}” role, created on first use*"
+            lines.append(f"Level **{m.level}** → {target}")
         items: list[discord.ui.Item] = [
             self.text("\n".join(lines) if lines else "No level roles yet. Add one to reward members as they level up."),
             self.row(self.choice_select(
@@ -516,7 +518,7 @@ class LevelingEditor(SectionEditor):
 
         async def save(modal_interaction: discord.Interaction, values: list[str]) -> None:
             low, high, cooldown = (_number(v, name, 0 if name == "Cooldown" else 1, 3600 if name == "Cooldown" else 100)
-                                   for v, name in zip(values, ("Minimum XP", "Maximum XP", "Cooldown")))
+                                   for v, name in zip(values, ("Minimum XP", "Maximum XP", "Cooldown"), strict=True))
             if low > high:
                 raise ValueError("The minimum XP can't be more than the maximum.")
             await self.bot.guild_config.update(self.guild.id, message_xp_min=low, message_xp_max=high, message_xp_cooldown=cooldown)

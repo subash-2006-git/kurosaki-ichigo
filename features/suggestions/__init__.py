@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from core.backups import RestoreTarget
 from features.suggestions import panel
 from features.suggestions.cog import DecideButton, Suggestions, VoteButton
 from features.suggestions.db import SuggestionsDB
@@ -16,6 +17,7 @@ BUTTONS = (VoteButton, DecideButton)
 
 async def setup(bot: Bot) -> None:
     bot.suggestions_db = SuggestionsDB(bot.db.pool)
+    bot.restore_targets.append(RestoreTarget("suggestions.settings", "Suggestion settings", keep_max=("counter",)))
     bot.add_dynamic_items(*BUTTONS)
     bot.panel.register(panel.SECTION)
     bot.panel.add_check(panel.check)

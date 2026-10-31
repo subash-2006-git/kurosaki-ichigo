@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING
 from discord.ext import commands
 
 from core.commands import hide
-
 from features.logging import panel
 from features.logging.services.audit_handler import AuditHandler
 from features.logging.services.channel_store import ChannelStore

@@ -6,7 +6,6 @@ import discord
 import pytest
 
 import features.community.services.roles as roles_module
-
 from features.community.models import RoleMode, XpSource
 from features.community.services.guild_config import GuildConfigService
 from features.community.services.leveling import AwardResult, LevelingService
