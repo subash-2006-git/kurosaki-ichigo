@@ -11,7 +11,7 @@ One discord.py bot (Python 3.11.9) that replaces four separate bots, sharing one
 
 ## Control panel (no commands needed)
 
-Run **`/panel`** once in a staff channel (needs Manage Server). It posts a permanent panel listing every feature with its current status and an **Open** button:
+Run **`/panel`** once in a staff channel (needs Manage Server). It posts a permanent panel listing every feature with its current status, and a button per feature that opens its settings:
 
 | Section | What you can change |
 |---|---|
@@ -19,8 +19,9 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 | 📈 Leveling | on/off, level-up announcements and channel, level-up message and link buttons, message/voice XP rules, **XP boost events** (2–5× XP for a set time), **no-XP channels** (channels or whole categories), level roles and role mode |
 | 🏷️ Self roles | post the pronoun picker (several allowed) and the DM-status picker (open / closed / ask; one at a time), created on first use; pick up to 10 of your roles as **ping roles** and post that picker |
 | ⭐ Starboard | on/off, channel, reaction and stars needed, whether self-stars count |
+| 💡 Suggestions | on/off, suggestions channel, a discussion thread on each suggestion |
 | 💬 Quote images | on/off, and the default look of new quotes (colour or grey avatar, side, light/dark, tinted with your theme colour) |
-| 🎫 Tickets | on/off, category for ticket channels, staff roles, transcripts channel, open tickets per member, ask for a reason, **Edit ticket message**, post the ticket button |
+| 🎫 Tickets | on/off, category for ticket channels, staff roles, transcripts channel, open tickets per member, ask for a reason, **Edit ticket message**, post the ticket button; **types** (own button, staff roles and category); closing quiet tickets; ratings and their averages |
 | 🧨 Anti-nuke | on/off, punishment (remove roles / kick / ban), undo the damage, block untrusted bots, block dangerous permissions, trusted people and roles, alerts channel, limits |
 | 🛡️ Moderation | mod-log / reports / alerts channels, punishment DMs, appeal link, automod filters and limits, banned words, allowed links, exemptions, escalation rules and how long warnings count, anti-raid (join floods, young accounts: kick or alert), raid mode and its automatic end |
 | 📜 Server Logs | which log channels exist, create/repair log channels and stats counters, staff read access |
@@ -31,6 +32,7 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 - Editors open **privately** (only you see them) and close after 10 minutes without use; every change applies instantly and updates the panel.
 - The panel's buttons keep working after restarts. Only members with **Manage Server** can use them. Running `/panel` again replaces the old panel.
 - Welcome, goodbye and level-up messages are embeds you design in the editor. Placeholders like `{user}`, `{server}`, `{membercount_ordinal}`, `{avatar}` and `{level}` are filled in; the image card shows inside the embed; up to 5 link buttons (Rules, Website…) go underneath.
+- **Suggestions:** `/suggest` posts the idea in the suggestions channel with 👍/👎 buttons (press again to take a vote back) and **Accept**/**Deny** buttons for staff with Manage Messages, who can add a reason. The member gets a DM with the decision, and voting closes. One suggestion per member per minute.
 - Level-up messages carry **📊 My rank** and **🏆 Leaderboard** buttons; mod-log cases carry **📜 History** and **↩️ Undo**; punishment DMs carry an **Appeal** button. All of these keep working after restarts.
 
 Settings commands the panel replaces (`/config`, `/welcome`, `/goodbye`, `/setup`, and the settings parts of `/leveling` and `/nick`) are hidden to keep the command list short; set `CONFIG_COMMANDS=true` to bring them back. The commands below are the ones that stay.
@@ -73,7 +75,7 @@ All commands are slash commands. Admin commands are hidden from members who don'
 
 | Area | Commands |
 |---|---|
-| Bot | `/panel` (control panel) · `/quote` (quote image) · `/mydata` (anyone: see or delete your data) · `/ping` · `/status` (Manage Server: Discord + database latency, uptime, running jobs) · `/sync` (bot owner: re-sync commands) |
+| Bot | `/panel` (control panel) · `/quote` (quote image) · `/suggest` (post a suggestion) · `/mydata` (anyone: see or delete your data) · `/ping` · `/status` (Manage Server: Discord + database latency, uptime, running jobs) · `/sync` (bot owner: re-sync commands) |
 | Punish | `/warn` `/warnings` `/delwarn` `/clearwarns` · `/timeout` `/untimeout` · `/kick` · `/ban` `/tempban` `/softban` `/unban` |
 | Cases | `/case` `/modlogs` `/reason` |
 | Raids | `/raidmode` |

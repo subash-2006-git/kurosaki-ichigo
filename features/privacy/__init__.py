@@ -1,6 +1,7 @@
 """/mydata: members see what the bot stores about them and can delete it themselves.
 
-Deleted: XP and levels, the XP history, nickname records, starboard entries (and their board posts).
+Deleted: XP and levels, the XP history, nickname records, starboard entries (and their board posts),
+suggestions (and their posts) and suggestion votes.
 Kept: moderation records (cases, notes, reports) and ticket records, which servers need to enforce
 their rules. PRIVACY.txt says the same.
 """
@@ -29,6 +30,8 @@ DELETABLE = {
     "Saved original nicknames": "SELECT COUNT(*) FROM nickname.original_nicknames WHERE user_id = $1",
     "Nickname change records": "SELECT COUNT(*) FROM nickname.change_log WHERE user_id = $1",
     "Starboard posts": "SELECT COUNT(*) FROM starboard.entries WHERE author_id = $1",
+    "Suggestions you posted": "SELECT COUNT(*) FROM suggestions.suggestions WHERE author_id = $1",
+    "Suggestion votes": "SELECT COUNT(*) FROM suggestions.votes WHERE user_id = $1",
 }
 KEPT = {
     "Moderation cases": "SELECT COUNT(*) FROM moderation.cases WHERE user_id = $1",
@@ -42,6 +45,14 @@ DELETE = (
     "DELETE FROM nickname.original_nicknames WHERE user_id = $1",
     "DELETE FROM nickname.change_log WHERE user_id = $1",
     "DELETE FROM starboard.entries WHERE author_id = $1",
+    "DELETE FROM suggestions.votes WHERE user_id = $1",
+    "DELETE FROM suggestions.suggestions WHERE author_id = $1",
+)
+# Messages the bot posted about the user, removed along with their rows: (guild_id, channel_id, message_id).
+POSTS = (
+    "SELECT e.guild_id, s.channel_id, e.star_message_id AS message_id FROM starboard.entries e "
+    "LEFT JOIN starboard.settings s USING (guild_id) WHERE e.author_id = $1",
+    "SELECT guild_id, channel_id, message_id FROM suggestions.suggestions WHERE author_id = $1 AND message_id IS NOT NULL",
 )
 
 
@@ -52,11 +63,10 @@ async def summary(pool: asyncpg.Pool, user_id: int) -> tuple[dict[str, int], dic
     return deletable, kept
 
 
-async def delete_user_data(pool: asyncpg.Pool, user_id: int) -> list[tuple[int, int]]:
-    """Delete everything deletable in one transaction. Returns the (channel, message) of starboard posts to remove."""
+async def delete_user_data(pool: asyncpg.Pool, user_id: int) -> list[tuple[int, int | None, int]]:
+    """Delete everything deletable in one transaction. Returns the (guild, channel, message) of posts to remove."""
     async with pool.acquire() as conn, conn.transaction():
-        posts = [(r["guild_id"], r["star_message_id"]) for r in
-                 await conn.fetch("SELECT guild_id, star_message_id FROM starboard.entries WHERE author_id = $1", user_id)]
+        posts = [(r["guild_id"], r["channel_id"], r["message_id"]) for sql in POSTS for r in await conn.fetch(sql, user_id)]
         for sql in DELETE:
             await conn.execute(sql, user_id)
     return posts
@@ -89,11 +99,11 @@ class Privacy(commands.Cog):
 
             async def do_delete(confirm_interaction: discord.Interaction) -> None:
                 posts = await delete_user_data(self.bot.db.pool, interaction.user.id)
-                for guild_id, message_id in posts:
-                    await self._remove_board_post(guild_id, message_id)
-                log.info("User %s deleted their data (%d starboard posts)", interaction.user.id, len(posts))
+                for guild_id, channel_id, message_id in posts:
+                    await self._remove_post(guild_id, channel_id, message_id)
+                log.info("User %s deleted their data (%d posts)", interaction.user.id, len(posts))
                 await confirm_interaction.response.edit_message(
-                    embed=style.ok("Done. Your XP, levels, nickname records and starboard posts are deleted. "
+                    embed=style.ok("Done. Everything under “You can delete” is gone, including the bot's posts about it. "
                                    "Level roles you already have stay on your account; a server admin can remove them."),
                     view=None,
                 )
@@ -101,7 +111,7 @@ class Privacy(commands.Cog):
             yes.callback = do_delete
             confirm.add_item(yes)
             await button_interaction.response.send_message(
-                embed=style.warn("Delete your XP, levels, nickname records and starboard posts in **every** server? "
+                embed=style.warn("Delete everything listed under “You can delete”, in **every** server? "
                                  "This can't be undone."),
                 view=confirm, ephemeral=True,
             )
@@ -110,15 +120,12 @@ class Privacy(commands.Cog):
         view.add_item(delete)
         await interaction.response.send_message(embed=summary_embed(deletable, kept, interaction.guild), view=view, ephemeral=True)
 
-    async def _remove_board_post(self, guild_id: int, message_id: int) -> None:
+    async def _remove_post(self, guild_id: int, channel_id: int | None, message_id: int) -> None:
         guild = self.bot.get_guild(guild_id)
-        if guild is None:
-            return
-        settings = await self.bot.starboard_db.settings(guild_id)
-        board = guild.get_channel(settings.channel_id) if settings.channel_id else None
-        if isinstance(board, discord.TextChannel):
+        channel = guild.get_channel(channel_id) if guild is not None and channel_id else None
+        if isinstance(channel, discord.TextChannel):
             try:
-                await board.get_partial_message(message_id).delete()
+                await channel.get_partial_message(message_id).delete()
             except discord.HTTPException:
                 pass
 

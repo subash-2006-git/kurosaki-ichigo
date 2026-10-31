@@ -144,6 +144,23 @@ async def test_panel_lists_sections_in_order_with_status():
     assert ids == ["panel:alpha", "panel:zeta"]
 
 
+async def test_panel_fits_discord_limit_with_many_sections():
+    bot = SimpleNamespace(theme=store_with())
+    service = PanelService(bot)
+    for n in range(20):
+        service.register(PanelSection("s" + "abcdefghijklmnopqrst"[n], f"Feature {n}", "⭐", n, noop_status, noop_open))
+    service.add_check(lambda bot, guild: _done())
+    view = await service.build(SimpleNamespace(id=1, name="Island"))
+    assert len(list(view.walk_children())) <= 40
+    rows = [c for c in view.walk_children() if isinstance(c, discord.ui.ActionRow)]
+    assert [len(r.children) for r in rows] == [5, 5, 5, 5]
+    assert rows[0].children[0].item.label == "Feature 0"
+
+
+async def _done():
+    return True, "Done"
+
+
 def test_hide_removes_commands_and_subcommands(monkeypatch):
     from discord import app_commands
 

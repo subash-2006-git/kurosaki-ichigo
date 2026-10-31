@@ -33,6 +33,7 @@ EXTENSIONS: tuple[str, ...] = (
     "features.selfroles",
     "features.starboard",
     "features.quotes",
+    "features.suggestions",
     "features.privacy",
 )
 

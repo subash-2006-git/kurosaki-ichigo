@@ -6,8 +6,8 @@ agree to these terms.
 
 1. THE SERVICE
 The bot provides moderation, server logging, statistics counters, leveling, welcome/goodbye
-messages, nickname management, tickets, anti-nuke protection, self roles, a starboard, quote images
-and an embed builder in Discord servers. It is
+messages, nickname management, tickets, anti-nuke protection, self roles, a starboard, quote images,
+suggestions and an embed builder in Discord servers. It is
 provided free of charge, "as is", without any guarantee of availability or uptime. Features may
 change or be removed at any time.
 

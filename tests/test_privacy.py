@@ -15,6 +15,10 @@ async def seed(conn, user_id: int) -> None:
     await conn.execute("INSERT INTO moderation.cases (guild_id, case_num, user_id, mod_id, action) VALUES (1, $1, $2, 9, 'warn')",
                        user_id, user_id)
     await conn.execute("INSERT INTO moderation.notes (guild_id, user_id, author_id, content) VALUES (1, $1, 9, 'n')", user_id)
+    suggestion = await conn.fetchval(
+        "INSERT INTO suggestions.suggestions (guild_id, number, author_id, channel_id, message_id, content) "
+        "VALUES (1, $1, $2, 3, $3, 'idea') RETURNING id", user_id, user_id, 3000 + user_id)
+    await conn.execute("INSERT INTO suggestions.votes (suggestion_id, user_id, vote) VALUES ($1, $2, 1)", suggestion, user_id)
     await conn.execute("INSERT INTO tickets.tickets (guild_id, number, channel_id, opener_id) VALUES (1, $1, 5, $2)",
                        user_id, user_id)
 
@@ -27,8 +31,9 @@ async def test_summary_and_delete(core_db):
     assert all(n == 1 for n in deletable.values())
     assert kept["Moderation cases"] == 1 and kept["Staff notes"] == 1 and kept["Tickets"] == 1
 
+    await core_db.pool.execute("INSERT INTO starboard.settings (guild_id, channel_id) VALUES (1, 2)")
     posts = await delete_user_data(core_db.pool, ME)
-    assert posts == [(1, 2000 + ME)]
+    assert posts == [(1, 2, 2000 + ME), (1, 3, 3000 + ME)]  # the board post and the suggestion post
     deletable, kept = await summary(core_db.pool, ME)
     assert all(n == 0 for n in deletable.values())
     assert kept["Moderation cases"] == 1 and kept["Staff notes"] == 1 and kept["Tickets"] == 1  # kept

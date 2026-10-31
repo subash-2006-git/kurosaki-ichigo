@@ -33,9 +33,15 @@ The bot stores only what its features need, keyed by Discord server (guild) ID a
 
   Tickets
     - Ticket settings per server (staff roles, channels, the ticket message).
-    - Each ticket: number, channel, who opened, claimed and closed it, the reason given, and times.
+    - Each ticket: number, channel, type, who opened, claimed and closed it, the reason given, the
+      member's 1-5 rating if they gave one, and times.
     - Ticket messages themselves are not stored by the bot; when a ticket closes, a transcript file
       is posted to the server's chosen transcripts channel and sent to the member who opened it.
+
+  Suggestions
+    - Each suggestion: its number, author, text, channel and message IDs, and the staff decision
+      (who decided, the reason given, and when).
+    - Who voted for or against each suggestion.
 
   Self roles, starboard and quote images
     - Which role belongs to each self-role option, and where the pickers are posted.
@@ -81,7 +87,8 @@ Data is not sold, shared with advertisers, or used to train AI models.
 
 5. YOUR CHOICES
   - Anyone can use /mydata to see what the bot stores about them and delete their XP, levels,
-    nickname records and starboard entries themselves, in every server at once.
+    nickname records, starboard entries, suggestions and suggestion votes themselves, in every
+    server at once.
   - Server admins can reset XP, remove warnings, delete notes and change or clear settings with the
     bot's commands.
   - Anyone may request access to, or deletion of, data about them by contacting the operator at

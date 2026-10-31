@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 SECTION_KEY_CHARS = "abcdefghijklmnopqrstuvwxyz_"
+ROW_SIZE = 5  # buttons per row on the posted panel (Discord's maximum)
 
 # A getting-started item: (bot, guild) -> (done, text), or None when it doesn't apply to this server.
 Check = Callable[["Bot", discord.Guild], Awaitable["tuple[bool, str] | None"]]
@@ -43,9 +44,9 @@ class PanelSection:
 class PanelEntry(discord.ui.DynamicItem[discord.ui.Button], template=r"panel:(?P<key>[a-z_]+)"):
     """An "Open" button on the posted panel. Restart-proof: rebuilt from its custom_id when clicked."""
 
-    def __init__(self, key: str, *, emoji: str | None = None) -> None:
+    def __init__(self, key: str, *, emoji: str | None = None, label: str = "Open") -> None:
         super().__init__(
-            discord.ui.Button(label="Open", emoji=emoji, style=discord.ButtonStyle.secondary, custom_id=f"panel:{key}")
+            discord.ui.Button(label=label[:80], emoji=emoji, style=discord.ButtonStyle.secondary, custom_id=f"panel:{key}")
         )
         self.key = key
 
@@ -119,25 +120,25 @@ class PanelService:
             discord.ui.TextDisplay(
                 f"# {style.GEAR} Control Panel\n"
                 f"Set up **{discord.utils.escape_markdown(guild.name)}** without typing commands. "
-                "Press **Open** next to a feature to change it. Changes apply instantly."
+                "Press a feature's button to change it. Changes apply instantly."
             ),
             discord.ui.Separator(),
         ]
         checklist = await self.checklist(guild)
         if checklist:
             items += [discord.ui.TextDisplay(checklist_text(checklist)), discord.ui.Separator()]
-        for section in self.sections:
-            try:
-                status = await section.status(self.bot, guild)
-            except Exception:
-                log.exception("Panel status for %s failed in guild %s", section.key, guild.id)
-                status = "Couldn't load the status"
-            items.append(
-                discord.ui.Section(
-                    discord.ui.TextDisplay(f"### {section.emoji} {section.label}\n-# {status}"),
-                    accessory=PanelEntry(section.key, emoji=section.emoji),
-                )
-            )
+        # Statuses in blocks of up to 5, each followed by a row of its buttons. Discord allows 40
+        # components per message; this costs about one per feature (a Section per feature cost three).
+        sections = self.sections
+        for start in range(0, len(sections), ROW_SIZE):
+            block = sections[start:start + ROW_SIZE]
+            lines = [f"**{section.emoji} {section.label}**\n-# {await self._status(section, guild)}" for section in block]
+            if start:
+                items.append(discord.ui.Separator(visible=False))
+            items += [
+                discord.ui.TextDisplay("\n".join(lines)),
+                discord.ui.ActionRow(*(PanelEntry(s.key, emoji=s.emoji, label=s.label) for s in block)),
+            ]
         items += [
             discord.ui.Separator(),
             discord.ui.TextDisplay("-# Only members with **Manage Server** can use these buttons. "
@@ -146,6 +147,13 @@ class PanelService:
         view = discord.ui.LayoutView(timeout=None)
         view.add_item(discord.ui.Container(*items, accent_colour=theme.colour))
         return view
+
+    async def _status(self, section: PanelSection, guild: discord.Guild) -> str:
+        try:
+            return await section.status(self.bot, guild)
+        except Exception:
+            log.exception("Panel status for %s failed in guild %s", section.key, guild.id)
+            return "Couldn't load the status"
 
     async def post(self, channel: discord.TextChannel) -> discord.Message:
         """Post a fresh panel in `channel`, replacing (deleting) this server's previous one."""
