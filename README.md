@@ -53,6 +53,8 @@ A "nuke" is a hacked admin account or a malicious bot wrecking a server in secon
 5. **Undoes the damage.** Recreates the channels and roles they deleted (name, category, position, permissions, topic, colour), deletes channels, roles and webhooks they created, and unbans who they banned.
 6. **Alerts** the alerts channel (or the moderation alerts / mod-log channel) and pings the owner.
 
+Bans and kicks that moderators do **through the bot's commands** (`/ban`, `/kick`, `/tempban`, `/softban`, report buttons) count against that moderator too, even though Discord's audit log credits them to the bot. Automod and warning escalation act as the bot and aren't counted.
+
 The server owner and the bot are always trusted. **Add your admins as trusted people or roles**, otherwise someone legitimately reorganising lots of channels can be stopped. Only the owner or an Administrator can change anti-nuke settings.
 
 **Limits (true for every anti-nuke bot):** Discord has no way to block an action before it happens, so actions are caught and reversed right after. Messages inside deleted channels can't be brought back. The bot can't stop anyone whose highest role is above its own (the panel warns when the bot's role isn't at the top) and can never stop the server owner. Restored roles aren't automatically re-given to the members who had them.

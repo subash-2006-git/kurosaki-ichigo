@@ -60,6 +60,8 @@ async def create_case(
 
     case = await bot.mod_db.create_case(guild.id, user.id, moderator.id, action, reason, duration_seconds)
     await send_log(bot, guild, case_embed(case, user=user), case_view(case))
+    if moderator.id != guild.me.id:  # a person acting through a command (automod/escalation act as the bot)
+        await bot.notify_action(guild, moderator.id, action, user.id)
     return case
 
 

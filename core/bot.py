@@ -45,6 +45,9 @@ StatusField = Callable[["Bot", int], "tuple[str, str] | None"]
 # and auto-renames skip them. Called as check(member, leaving=False) on join ("are you about to
 # remove them?") and check(member, leaving=True) on leave ("did you just remove them?").
 JoinFilter = Callable[..., Awaitable[bool]]
+# Told about actions people take *through* the bot (e.g. /ban), which the audit log credits to the bot:
+# (guild, actor_id, action, target_id). Anti-nuke counts them against the real actor.
+ActionWatcher = Callable[[discord.Guild, int, str, "int | None"], Awaitable[None]]
 
 
 def build_intents() -> discord.Intents:
@@ -75,6 +78,7 @@ class Bot(commands.Bot):
         self.error_reporters: list[ErrorReporter] = []
         self.status_fields: list[StatusField] = []
         self.join_filters: list[JoinFilter] = []
+        self.action_watchers: list[ActionWatcher] = []
 
     async def setup_hook(self) -> None:
         await self.db.connect()
@@ -147,6 +151,14 @@ class Bot(commands.Bot):
             except Exception:
                 log.exception("Join filter %r failed", check)
         return False
+
+    async def notify_action(self, guild: discord.Guild, actor_id: int, action: str, target_id: int | None) -> None:
+        """Tell watchers (anti-nuke) that `actor_id` did `action` through one of the bot's commands. Never raises."""
+        for watcher in self.action_watchers:
+            try:
+                await watcher(guild, actor_id, action, target_id)
+            except Exception:
+                log.exception("Action watcher %r failed", watcher)
 
     async def close(self) -> None:
         await super().close()

@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import discord
 import pytest
 
+from features.antinuke.cogs.antinuke import COMMAND_ACTIONS, AntiNuke
 from features.antinuke.db import AntinukeDB
 from features.antinuke.detector import (
     DEFAULT_LIMITS,
@@ -102,3 +103,45 @@ async def test_settings_storage_and_cache(core_db):
     assert s.limits["ban"] == {"count": 9, "seconds": 30} and s.limits["kick"] == DEFAULT_LIMITS["kick"]
     with pytest.raises(ValueError):
         await db.update(1, counter=2)
+
+
+# ---- moderators acting through the bot's commands are counted too ----
+
+
+def make_cog(settings, responded):
+    bot = SimpleNamespace(user=SimpleNamespace(id=2), antinuke_db=SimpleNamespace(settings=lambda gid: _ret(settings)), action_watchers=[])
+    cog = AntiNuke(bot)
+
+    async def respond(guild, actor_id, action, s):
+        responded.append((actor_id, action))
+    cog._respond = respond
+    return cog
+
+
+async def _ret(value):
+    return value
+
+
+def anti_settings(**overrides):
+    base = dict(enabled=True, trusted_user_ids=[], trusted_role_ids=[], limits=merged_limits({"ban": {"count": 2, "seconds": 60}}))
+    base.update(overrides)
+    return SimpleNamespace(**base)
+
+
+async def test_command_bans_count_against_the_moderator():
+    responded = []
+    cog = make_cog(anti_settings(), responded)
+    guild = SimpleNamespace(id=1, owner_id=1, get_member=lambda i: None)
+    for target in (10, 11, 12):
+        await cog.on_command_action(guild, 50, "tempban", target)
+    assert responded == [(50, "ban")]  # 3 bans > limit 2, one response
+
+
+async def test_command_actions_skip_trusted_and_uncounted_kinds():
+    responded = []
+    cog = make_cog(anti_settings(trusted_user_ids=[50]), responded)
+    guild = SimpleNamespace(id=1, owner_id=1, get_member=lambda i: None)
+    for target in (10, 11, 12):
+        await cog.on_command_action(guild, 50, "ban", target)   # trusted moderator
+        await cog.on_command_action(guild, 60, "warn", target)  # warnings aren't nuke actions
+    assert responded == [] and "warn" not in COMMAND_ACTIONS

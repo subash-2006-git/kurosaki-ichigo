@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from urllib.parse import urlsplit, urlunsplit
 
 import asyncpg
 import pytest
@@ -18,6 +19,12 @@ def postgres_admin_url(tmp_path_factory):
     yield server.get_uri()
 
 
+def with_database(url: str, name: str) -> str:
+    """The same server URL pointing at another database. Keeps the query: on Linux pgserver
+    connects through a Unix socket given as ?host=/tmp/..., which contains slashes."""
+    return urlunsplit(urlsplit(url)._replace(path=f"/{name}"))
+
+
 @pytest.fixture
 async def core_db(postgres_admin_url):
     """A core Database on a brand-new database with every migration in migrations/ applied."""
@@ -27,7 +34,7 @@ async def core_db(postgres_admin_url):
         await admin.execute(f'CREATE DATABASE "{name}"')
     finally:
         await admin.close()
-    database = Database(f"{postgres_admin_url.rsplit('/', 1)[0]}/{name}", ssl="disable")
+    database = Database(with_database(postgres_admin_url, name), ssl="disable")
     await database.connect()
     await migrate.run(database)
     yield database

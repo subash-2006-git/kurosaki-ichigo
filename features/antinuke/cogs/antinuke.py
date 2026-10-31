@@ -33,6 +33,8 @@ log = logging.getLogger(__name__)
 REASON = "Anti-nuke"
 UNDO_HORIZON = 120  # seconds of an attacker's recent actions that get undone
 PUNISHMENTS = {"strip_roles": "Removed their roles", "kick": "Kicked them", "ban": "Banned them"}
+# Moderation case actions -> anti-nuke action keys (bans of every kind count as bans).
+COMMAND_ACTIONS = {"ban": "ban", "tempban": "ban", "softban": "ban", "kick": "kick"}
 
 
 class AntiNuke(commands.Cog):
@@ -50,6 +52,13 @@ class AntiNuke(commands.Cog):
         for snaps in (self.channel_snaps, self.role_snaps):
             for key in [k for k, (at, _) in snaps.items() if now - at > SNAPSHOT_TTL]:
                 del snaps[key]
+
+    async def cog_load(self) -> None:
+        self.bot.action_watchers.append(self.on_command_action)
+
+    async def cog_unload(self) -> None:
+        if self.on_command_action in self.bot.action_watchers:
+            self.bot.action_watchers.remove(self.on_command_action)
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
@@ -82,10 +91,27 @@ class AntiNuke(commands.Cog):
         elif name == "role_update" and settings.revert_dangerous_perms:
             await self._check_role_update(guild, entry, actor_id, target_id)
         elif (action := ACTIONS.get(name)) is not None:
-            if self.tracker.add(guild.id, actor_id, action, target_id, settings.limits[action]) \
-                    and self.tracker.claim(guild.id, actor_id):
-                async with self._locks[guild.id]:
-                    await self._respond(guild, actor_id, action, settings)
+            await self._count(guild, actor_id, action, target_id, settings)
+
+    async def on_command_action(self, guild: discord.Guild, actor_id: int, action: str, target_id: int | None) -> None:
+        """A moderator's /ban, /kick etc. The audit log credits those to the bot, so they're counted here instead."""
+        action = COMMAND_ACTIONS.get(action)
+        if action is None:
+            return
+        settings = await self.bot.antinuke_db.settings(guild.id)
+        if not settings.enabled:
+            return
+        actor = guild.get_member(actor_id)
+        role_ids = {r.id for r in actor.roles} if actor else set()
+        if is_trusted(actor_id, role_ids, owner_id=guild.owner_id, bot_id=self.bot.user.id, settings=settings):
+            return
+        await self._count(guild, actor_id, action, target_id, settings)
+
+    async def _count(self, guild: discord.Guild, actor_id: int, action: str, target_id: int | None, settings) -> None:
+        if self.tracker.add(guild.id, actor_id, action, target_id, settings.limits[action]) \
+                and self.tracker.claim(guild.id, actor_id):
+            async with self._locks[guild.id]:
+                await self._respond(guild, actor_id, action, settings)
 
     async def _remove_added_bot(self, guild: discord.Guild, actor_id: int, bot_id: int | None) -> None:
         added = guild.get_member(bot_id) if bot_id else None
