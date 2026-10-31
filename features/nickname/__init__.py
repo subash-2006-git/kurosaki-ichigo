@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 
 from discord.ext import commands
 
+from core.commands import hide
+
 from features.nickname import panel
 from features.nickname.db import NicknameDB
 from features.nickname.services.job_manager import JobManager
@@ -31,6 +33,8 @@ async def setup(bot: Bot) -> None:
     bot.panel.register(panel.SECTION)
     for name in COGS:
         await bot.load_extension(f"{__name__}.cogs.{name}")
+    # The panel's Nicknames section; preview/apply/reset/status/stop stay as commands.
+    hide(bot, "nick mode", "nick template", "nick settings", "nick exclude-role", "nick exclude-member", "nick include-bots")
 
 
 async def teardown(bot: Bot) -> None:

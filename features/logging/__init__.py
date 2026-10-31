@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 
 from discord.ext import commands
 
+from core.commands import hide
+
 from features.logging import panel
 from features.logging.services.audit_handler import AuditHandler
 from features.logging.services.channel_store import ChannelStore
@@ -32,6 +34,7 @@ async def setup(bot: Bot) -> None:
     bot.panel.add_check(panel.check)
     for name in COGS:
         await bot.load_extension(f"{__name__}.cogs.{name}")
+    hide(bot, "setup")  # the panel's Server Logs section runs the same code
 
 
 async def teardown(bot: Bot) -> None:

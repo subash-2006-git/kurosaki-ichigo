@@ -33,7 +33,7 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 - Welcome, goodbye and level-up messages are embeds you design in the editor. Placeholders like `{user}`, `{server}`, `{membercount_ordinal}`, `{avatar}` and `{level}` are filled in; the image card shows inside the embed; up to 5 link buttons (Rules, Website…) go underneath.
 - Level-up messages carry **📊 My rank** and **🏆 Leaderboard** buttons; mod-log cases carry **📜 History** and **↩️ Undo**; punishment DMs carry an **Appeal** button. All of these keep working after restarts.
 
-All the slash commands below still work and change the same settings.
+Settings commands the panel replaces (`/config`, `/welcome`, `/goodbye`, `/setup`, and the settings parts of `/leveling` and `/nick`) are hidden to keep the command list short; set `CONFIG_COMMANDS=true` to bring them back. The commands below are the ones that stay.
 
 ### Self roles, starboard and quote images
 
@@ -72,14 +72,13 @@ All commands are slash commands. Admin commands are hidden from members who don'
 | Bot | `/panel` (control panel) · `/quote` (quote image) · `/mydata` (anyone: see or delete your data) · `/ping` · `/status` (Manage Server: Discord + database latency, uptime, running jobs) · `/sync` (bot owner: re-sync commands) |
 | Punish | `/warn` `/warnings` `/delwarn` `/clearwarns` · `/timeout` `/untimeout` · `/kick` · `/ban` `/tempban` `/softban` `/unban` |
 | Cases | `/case` `/modlogs` `/reason` |
-| Moderation setup | `/config view` · `/config modlog` `reports` `alerts` `appeal` `dm` · `/config automod …` · `/config badword …` · `/config whitelist …` · `/config escalation …` · `/config antiraid` · `/raidmode` |
+| Raids | `/raidmode` |
 | Staff tools | `/note add` `list` `delete` · `/role add` `remove` `temp` · `/purge` `/slowmode` `/lock` `/unlock` `/lockdown` · `/userinfo` `/serverinfo` |
 | Reports | `/report` · right-click → Apps → **Report Message** / **Report User** (buttons in the report channel keep working after restarts) |
-| Logging | `/setup logs [staff_role]` · `/setup stats` |
-| Nicknames | `/nick template` `mode` `preview` `apply` `reset` `status` `stop` `settings` `exclude-role` `exclude-member` `include-bots` |
+| Nicknames | `/nick preview` `apply` `reset` `status` `stop` |
 | Embeds | `/embed create` |
-| Welcome / goodbye | `/welcome setup` `channel` `text` `gif` `card` `enable` `disable` `preview` `settings` · same for `/goodbye`, plus `/goodbye dm enable` `disable` `text` |
-| Leveling | `/rank` · `/leaderboard` · `/leveling enable` `disable` `settings` `message-xp` `message-cooldown` `voice-xp` `voice-interval` `voice-rules` `levelup` `levelup-channel` `levelup-text` · `/leveling role add` `remove` `list` `mode` `sync` · `/leveling xp set` `add` `reset` `reset-all` |
+| Leveling | `/rank` · `/leaderboard` · `/leveling xp set` `add` `reset` `reset-all` · `/leveling role sync` |
+| Settings | in `/panel` (with `CONFIG_COMMANDS=true` also `/config …`, `/welcome …`, `/goodbye …`, `/setup …` and the settings parts of `/leveling` and `/nick`) |
 
 ## Discord application setup
 
@@ -148,6 +147,7 @@ See [`.env.example`](.env.example). Only `DISCORD_TOKEN` and `DATABASE_URL` are 
 | `DATABASE_URL` | — | required, Neon pooled connection string |
 | `DEV_GUILD_ID` | — | sync commands to one server (development) |
 | `SYNC_COMMANDS` | `false` | sync global commands on startup (production) |
+| `CONFIG_COMMANDS` | `false` | `true` keeps the settings commands the panel replaces (`/config`, `/welcome`, `/goodbye`, `/setup`, most of `/leveling` and `/nick`) |
 | `OWNER_IDS` | — | user IDs (comma-separated) allowed to use `/sync`; empty = the app's owner or team |
 | `DATABASE_SSL` | `require` | `disable` only for a local Postgres without TLS |
 | `PORT` | `8080` | web server (Render sets this) |

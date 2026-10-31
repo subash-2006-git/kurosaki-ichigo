@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 
 from discord.ext import commands
 
+from core.commands import hide
+
 from features.moderation import panel
 from features.moderation.case_buttons import HistoryButton, UndoButton
 from features.moderation.db import ModerationDB
@@ -39,6 +41,7 @@ async def setup(bot: Bot) -> None:
     bot.panel.add_check(panel.check)
     for name in COGS:
         await bot.load_extension(f"{__name__}.cogs.{name}")
+    hide(bot, "config")  # the panel's Moderation section
 
 
 async def teardown(bot: Bot) -> None:

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import aiohttp
 from discord.ext import commands
 
+from core.commands import hide
 from core.interactions import DEFER
 from features.community import panel
 from features.community.db import CommunityDB
@@ -44,6 +45,11 @@ async def setup(bot: Bot) -> None:
     bot.http_session = aiohttp.ClientSession(headers={"User-Agent": USER_AGENT})
     for name in COGS:
         await bot.load_extension(f"{__name__}.cogs.{name}")
+    # The panel's Welcome & Goodbye and Leveling sections. Kept: /leveling xp ... and /leveling role sync.
+    hide(bot, "welcome", "goodbye",
+         *(f"leveling {name}" for name in ("enable", "disable", "settings", "message-xp", "message-cooldown", "voice-xp",
+                                            "voice-interval", "voice-rules", "levelup", "levelup-channel", "levelup-text")),
+         *(f"leveling role {name}" for name in ("add", "remove", "list", "mode")))
     for name in DEFERRED_COMMANDS:
         command = bot.tree.get_command(name)
         if command is not None:

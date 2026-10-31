@@ -142,3 +142,48 @@ async def test_panel_lists_sections_in_order_with_status():
     assert any("Zeta" in t and "fine" in t for t in texts)
     ids = [c.custom_id for c in view.walk_children() if isinstance(c, PanelEntry)]
     assert ids == ["panel:alpha", "panel:zeta"]
+
+
+def test_hide_removes_commands_and_subcommands(monkeypatch):
+    from discord import app_commands
+
+    import core.config as config
+    from core.commands import hide
+
+    class Tree:  # just what hide() uses
+        def __init__(self):
+            self.commands = {}
+
+        def add_command(self, command):
+            self.commands[command.name] = command
+
+        def get_command(self, name):
+            return self.commands.get(name)
+
+        def remove_command(self, name):
+            return self.commands.pop(name, None)
+
+    tree = Tree()
+    group = app_commands.Group(name="leveling", description="x")
+    sub = app_commands.Group(name="role", description="x", parent=group)
+
+    async def cb(interaction):
+        ...
+
+    for name in ("enable", "settings"):
+        group.add_command(app_commands.Command(name=name, description="x", callback=cb))
+    for name in ("add", "sync"):
+        sub.add_command(app_commands.Command(name=name, description="x", callback=cb))
+    tree.add_command(group)
+    tree.add_command(app_commands.Command(name="config", description="x", callback=cb))
+    bot = SimpleNamespace(tree=tree)
+
+    monkeypatch.setattr(config, "CONFIG_COMMANDS", True)
+    hide(bot, "config")
+    assert tree.get_command("config") is not None  # kept when CONFIG_COMMANDS is on
+
+    monkeypatch.setattr(config, "CONFIG_COMMANDS", False)
+    hide(bot, "config", "leveling enable", "leveling role add", "missing thing")
+    assert tree.get_command("config") is None
+    assert sorted(c.name for c in group.commands) == ["role", "settings"]
+    assert [c.name for c in sub.commands] == ["sync"]
