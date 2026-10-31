@@ -1,8 +1,9 @@
-"""Quote images: right-click a message → Apps → "Make a quote image", or reply to it mentioning the bot.
+"""Quote images: right-click a message → Apps → "Make a quote image", reply to it mentioning the bot, or /quote.
 
-The image's buttons (Colour, Flip, Light/Dark, Delete) are DynamicItems that carry everything they
-need in their custom_id ("quote:<action>:<style bits>:<requester>:<channel>:<message>"), so they keep
-working after restarts: the original message is fetched again and the image re-rendered.
+Single quotes carry everything their buttons need in the custom_id
+("quote:<action>:<style bits>:<requester>:<channel>:<message>"); multi-message quotes carry the first
+message and how many ("quotes:<action>:<bits>:<requester>:<channel>:<first message>:<count>"). Both
+are DynamicItems, so buttons keep working after restarts: the messages are fetched again and re-drawn.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from core.ui import style
-from features.quotes.render import QuoteStyle, clean_text, render_quote
+from features.quotes.render import QuoteLine, QuoteStyle, clean_text, render_conversation, render_quote
 
 if TYPE_CHECKING:
     from core.bot import Bot
@@ -28,26 +29,43 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 COOLDOWN = 10.0
-STYLE_ACTIONS = {"colour": ("Colour", "🎨"), "flip": ("Flip", "↔️"), "light": ("Light / Dark", "🌗")}
+MAX_MESSAGES = 5
+STYLE_ACTIONS = {"colour": ("Colour", "🎨"), "flip": ("Flip", "↔️"), "light": ("Light / Dark", "🌗"), "tint": ("Tint", "🖌️")}
+CONVO_ACTIONS = ("colour", "light", "tint")  # a conversation has no big avatar to flip
 
 
 class QuotesDB:
+    """On/off and the server's default style, cached."""
+
     def __init__(self, pool: asyncpg.Pool) -> None:
         self.pool = pool
-        self._cache: dict[int, bool] = {}
+        self._cache: dict[int, tuple[bool, int]] = {}
+
+    async def _load(self, guild_id: int) -> tuple[bool, int]:
+        if guild_id not in self._cache:
+            row = await self.pool.fetchrow("SELECT enabled, default_bits FROM quotes.settings WHERE guild_id = $1", guild_id)
+            self._cache[guild_id] = (row["enabled"], row["default_bits"]) if row else (True, 0)
+        return self._cache[guild_id]
 
     async def enabled(self, guild_id: int) -> bool:
-        if guild_id not in self._cache:
-            value = await self.pool.fetchval("SELECT enabled FROM quotes.settings WHERE guild_id = $1", guild_id)
-            self._cache[guild_id] = True if value is None else value
-        return self._cache[guild_id]
+        return (await self._load(guild_id))[0]
+
+    async def default_style(self, guild_id: int) -> QuoteStyle:
+        return QuoteStyle.from_bits((await self._load(guild_id))[1])
 
     async def set_enabled(self, guild_id: int, enabled: bool) -> None:
         await self.pool.execute(
             "INSERT INTO quotes.settings (guild_id, enabled) VALUES ($1, $2) "
             "ON CONFLICT (guild_id) DO UPDATE SET enabled = EXCLUDED.enabled", guild_id, enabled,
         )
-        self._cache[guild_id] = enabled
+        self._cache.pop(guild_id, None)
+
+    async def set_default_style(self, guild_id: int, quote_style: QuoteStyle) -> None:
+        await self.pool.execute(
+            "INSERT INTO quotes.settings (guild_id, default_bits) VALUES ($1, $2) "
+            "ON CONFLICT (guild_id) DO UPDATE SET default_bits = EXCLUDED.default_bits", guild_id, quote_style.bits,
+        )
+        self._cache.pop(guild_id, None)
 
 
 def quote_text(message: discord.Message) -> str:
@@ -69,14 +87,36 @@ def quote_text(message: discord.Message) -> str:
     return clean_text(message.content, user=user, role=role, channel=channel)
 
 
-async def make_image(message: discord.Message, quote_style: QuoteStyle) -> discord.File:
-    author = message.author
+async def avatar_png(user: discord.abc.User, size: int = 512) -> bytes | None:
     try:
-        avatar = await author.display_avatar.replace(size=512, format="png").read()
+        return await user.display_avatar.replace(size=size, format="png").read()
     except discord.DiscordException:
-        avatar = None
-    png = await asyncio.to_thread(render_quote, quote_text(message), author.display_name, author.name, avatar, quote_style)
+        return None
+
+
+def accent_for(client, guild: discord.Guild | None) -> int:
+    return client.theme.get(guild).accent
+
+
+async def make_image(message: discord.Message, quote_style: QuoteStyle, accent: int | None = None) -> discord.File:
+    author = message.author
+    png = await asyncio.to_thread(render_quote, quote_text(message), author.display_name, author.name,
+                                  await avatar_png(author), quote_style, accent)
     return discord.File(io.BytesIO(png), filename="quote.png")
+
+
+async def make_conversation(messages: list[discord.Message], quote_style: QuoteStyle, accent: int | None = None) -> discord.File:
+    avatars: dict[int, bytes | None] = {}
+    for message in messages:
+        if message.author.id not in avatars:
+            avatars[message.author.id] = await avatar_png(message.author, 128)
+    lines = [QuoteLine(m.author.display_name, m.author.name, quote_text(m), avatars[m.author.id]) for m in messages]
+    png = await asyncio.to_thread(render_conversation, lines, quote_style, accent)
+    return discord.File(io.BytesIO(png), filename="quote.png")
+
+
+def quotable(message: discord.Message) -> bool:
+    return not message.author.bot and bool(message.content.strip())
 
 
 MESSAGE_LINK = re.compile(r"(?:https?://)?(?:\w+\.)?discord(?:app)?\.com/channels/(\d+)/(\d+)/(\d+)")
@@ -114,12 +154,41 @@ async def find_message(interaction: discord.Interaction, text: str) -> discord.M
 
 async def latest_message(channel, user: discord.abc.User | None) -> discord.Message | None:
     """The most recent message with text in this channel (from `user`, if given), skipping bots."""
+    found = await latest_messages(channel, user, 1)
+    return found[0] if found else None
+
+
+async def latest_messages(channel, user: discord.abc.User | None, count: int) -> list[discord.Message]:
+    """The last `count` messages with text (from `user`, if given), oldest first, skipping bots."""
+    found = []
     async for message in channel.history(limit=50):
-        if message.author.bot or not message.content.strip():
-            continue
-        if user is None or message.author.id == user.id:
-            return message
-    return None
+        if quotable(message) and (user is None or message.author.id == user.id):
+            found.append(message)
+            if len(found) == count:
+                break
+    return list(reversed(found))
+
+
+async def messages_from(channel, first: discord.Message, count: int) -> list[discord.Message]:
+    """`first` and the next messages after it, up to `count` with text, skipping bots."""
+    found = [first] if quotable(first) else []
+    async for message in channel.history(limit=50, after=first, oldest_first=True):
+        if len(found) >= count:
+            break
+        if quotable(message):
+            found.append(message)
+    return found
+
+
+def _allowed(interaction: discord.Interaction, requester_id: int, authors: set[int]) -> bool:
+    member = interaction.user
+    return member.id == requester_id or member.id in authors or (
+        isinstance(member, discord.Member) and interaction.channel is not None
+        and interaction.channel.permissions_for(member).manage_messages
+    )
+
+
+# ---- one message -----------------------------------------------------------------
 
 
 def quote_view(quote_style: QuoteStyle, requester_id: int, channel_id: int, message_id: int) -> discord.ui.View:
@@ -130,7 +199,7 @@ def quote_view(quote_style: QuoteStyle, requester_id: int, channel_id: int, mess
 
 
 class QuoteButton(discord.ui.DynamicItem[discord.ui.Button],
-                  template=r"quote:(?P<action>colour|flip|light|delete):(?P<bits>\d):(?P<req>\d+):(?P<ch>\d+):(?P<msg>\d+)"):
+                  template=r"quote:(?P<action>colour|flip|light|tint|delete):(?P<bits>\d{1,2}):(?P<req>\d+):(?P<ch>\d+):(?P<msg>\d+)"):
     def __init__(self, action: str, bits: int, requester_id: int, channel_id: int, message_id: int) -> None:
         label, emoji = STYLE_ACTIONS.get(action, ("Delete", "🗑️"))
         super().__init__(discord.ui.Button(
@@ -153,12 +222,7 @@ class QuoteButton(discord.ui.DynamicItem[discord.ui.Button],
                 original = await channel.fetch_message(self.message_id)
             except discord.HTTPException:
                 original = None
-        member = interaction.user
-        allowed = member.id == self.requester_id or (original is not None and member.id == original.author.id) or (
-            isinstance(member, discord.Member) and interaction.channel is not None
-            and interaction.channel.permissions_for(member).manage_messages
-        )
-        if not allowed:
+        if not _allowed(interaction, self.requester_id, {original.author.id} if original else set()):
             await interaction.response.send_message(
                 embed=style.fail("Only the person who made this quote, or the person quoted, can change it."), ephemeral=True)
             return
@@ -172,10 +236,68 @@ class QuoteButton(discord.ui.DynamicItem[discord.ui.Button],
             return
         await interaction.response.defer()
         new_style = QuoteStyle.from_bits(self.bits).toggled(self.action)
-        image = await make_image(original, new_style)
+        image = await make_image(original, new_style, accent_for(interaction.client, original.guild))
         await interaction.edit_original_response(
             attachments=[image], view=quote_view(new_style, self.requester_id, self.channel_id, self.message_id)
         )
+
+
+# ---- several messages ------------------------------------------------------------
+
+
+def conversation_view(quote_style: QuoteStyle, requester_id: int, channel_id: int, first_id: int, count: int) -> discord.ui.View:
+    view = discord.ui.View(timeout=None)
+    for action in (*CONVO_ACTIONS, "delete"):
+        view.add_item(ConversationButton(action, quote_style.bits, requester_id, channel_id, first_id, count))
+    return view
+
+
+class ConversationButton(discord.ui.DynamicItem[discord.ui.Button],
+                         template=r"quotes:(?P<action>colour|light|tint|delete):(?P<bits>\d{1,2}):(?P<req>\d+):(?P<ch>\d+):(?P<first>\d+):(?P<n>\d)"):
+    def __init__(self, action: str, bits: int, requester_id: int, channel_id: int, first_id: int, count: int) -> None:
+        label, emoji = STYLE_ACTIONS.get(action, ("Delete", "🗑️"))
+        super().__init__(discord.ui.Button(
+            label=label, emoji=emoji,
+            style=discord.ButtonStyle.danger if action == "delete" else discord.ButtonStyle.secondary,
+            custom_id=f"quotes:{action}:{bits}:{requester_id}:{channel_id}:{first_id}:{count}",
+        ))
+        self.action, self.bits, self.requester_id = action, bits, requester_id
+        self.channel_id, self.first_id, self.count = channel_id, first_id, count
+
+    @classmethod
+    async def from_custom_id(cls, interaction: discord.Interaction, item: discord.ui.Button, match, /) -> ConversationButton:
+        return cls(match["action"], int(match["bits"]), int(match["req"]), int(match["ch"]), int(match["first"]), int(match["n"]))
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        channel = interaction.client.get_channel(self.channel_id)
+        messages: list[discord.Message] = []
+        if isinstance(channel, discord.abc.Messageable):
+            try:
+                messages = await messages_from(channel, await channel.fetch_message(self.first_id), self.count)
+            except discord.HTTPException:
+                messages = []
+        if not _allowed(interaction, self.requester_id, {m.author.id for m in messages}):
+            await interaction.response.send_message(
+                embed=style.fail("Only the person who made this quote, or someone in it, can change it."), ephemeral=True)
+            return
+        if self.action == "delete":
+            await interaction.response.defer()
+            await interaction.message.delete()
+            return
+        if not messages:
+            await interaction.response.send_message(embed=style.warn("Those messages are gone, so this quote can't change."),
+                                                    ephemeral=True)
+            return
+        await interaction.response.defer()
+        new_style = QuoteStyle.from_bits(self.bits).toggled(self.action)
+        image = await make_conversation(messages, new_style, accent_for(interaction.client, messages[0].guild))
+        await interaction.edit_original_response(
+            attachments=[image],
+            view=conversation_view(new_style, self.requester_id, self.channel_id, self.first_id, self.count),
+        )
+
+
+# ---- the cog ---------------------------------------------------------------------
 
 
 class Quotes(commands.Cog):
@@ -214,35 +336,44 @@ class Quotes(commands.Cog):
         await self._send_quote(interaction, message)
 
     async def _send_quote(self, interaction: discord.Interaction, message: discord.Message) -> None:
-        image = await make_image(message, QuoteStyle())
-        await interaction.followup.send(file=image, view=quote_view(QuoteStyle(), interaction.user.id, message.channel.id, message.id))
+        quote_style = await self.bot.quotes_db.default_style(interaction.guild_id)
+        image = await make_image(message, quote_style, accent_for(self.bot, interaction.guild))
+        await interaction.followup.send(file=image, view=quote_view(quote_style, interaction.user.id, message.channel.id, message.id))
 
     @app_commands.command(name="quote", description="Make a quote image from a message (default: the latest one here).")
     @app_commands.describe(
         message="A message link (right-click a message → Copy Message Link) or ID. Leave empty for the latest message.",
         user="Quote this person's latest message here instead",
+        count="Put up to 5 messages on one image, like a conversation (from the link onwards, or the latest ones)",
     )
     @app_commands.guild_only()
     async def quote(self, interaction: discord.Interaction, message: str | None = None,
-                    user: discord.Member | None = None) -> None:
-        # Slash commands can't be sent as a reply, so the message is picked by link/ID, or the latest one.
+                    user: discord.Member | None = None, count: app_commands.Range[int, 1, MAX_MESSAGES] = 1) -> None:
+        # Slash commands can't be sent as a reply, so messages are picked by link/ID, or the latest ones.
         await interaction.response.defer(thinking=True)
         if message:
-            target = await find_message(interaction, message)
-            if isinstance(target, str):
-                await interaction.followup.send(embed=style.warn(target), ephemeral=True)
+            first = await find_message(interaction, message)
+            if isinstance(first, str):
+                await interaction.followup.send(embed=style.warn(first), ephemeral=True)
                 return
+            targets = await messages_from(first.channel, first, count) if count > 1 else [first]
         else:
-            target = await latest_message(interaction.channel, user)
-            if target is None:
-                who = f"{user.mention}'s" if user else "a"
-                await interaction.followup.send(embed=style.warn(f"I couldn't find {who} recent message with text here."),
-                                                ephemeral=True)
-                return
-        if problem := await self._problem(interaction.guild_id, target, interaction.user.id):
+            targets = await latest_messages(interaction.channel, user, count)
+        if not targets:
+            who = f"{user.mention}'s" if user else "any"
+            await interaction.followup.send(embed=style.warn(f"I couldn't find {who} recent messages with text here."),
+                                            ephemeral=True)
+            return
+        if problem := await self._problem(interaction.guild_id, targets[0], interaction.user.id):
             await interaction.followup.send(embed=style.warn(problem), ephemeral=True)
             return
-        await self._send_quote(interaction, target)
+        if len(targets) == 1:
+            await self._send_quote(interaction, targets[0])
+            return
+        quote_style = await self.bot.quotes_db.default_style(interaction.guild_id)
+        image = await make_conversation(targets, quote_style, accent_for(self.bot, interaction.guild))
+        await interaction.followup.send(file=image, view=conversation_view(
+            quote_style, interaction.user.id, targets[0].channel.id, targets[0].id, len(targets)))
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
@@ -261,12 +392,12 @@ class Quotes(commands.Cog):
         if problem := await self._problem(message.guild.id, target, message.author.id):
             await message.reply(embed=style.warn(problem), mention_author=False, delete_after=8)
             return
+        quote_style = await self.bot.quotes_db.default_style(message.guild.id)
         async with message.channel.typing():
-            image = await make_image(target, QuoteStyle())
-        await message.reply(file=image, view=quote_view(QuoteStyle(), message.author.id, target.channel.id, target.id),
+            image = await make_image(target, quote_style, accent_for(self.bot, message.guild))
+        await message.reply(file=image, view=quote_view(quote_style, message.author.id, target.channel.id, target.id),
                             mention_author=False)
 
 
 def status_line(enabled: bool) -> str:
-    return f"{style.ON} On · right-click a message → Apps → Make a quote image" if enabled else f"{style.OFF} Off"
-
+    return f"{style.ON} On · right-click a message → Apps → Make a quote image, or /quote" if enabled else f"{style.OFF} Off"

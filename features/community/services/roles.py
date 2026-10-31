@@ -58,6 +58,8 @@ class RoleService:
         self.db = db
         self.guild_config = guild_config
         self._milestones: dict[int, list[Milestone]] = {}
+        # Bumped on every change, so a read that started before the change can't cache the old list.
+        self._versions: defaultdict[int, int] = defaultdict(int)
         self._locks: defaultdict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
         self._problem_logged: dict[tuple[int, str], float] = {}
 
@@ -66,21 +68,27 @@ class RoleService:
     async def milestones(self, guild_id: int) -> list[Milestone]:
         cached = self._milestones.get(guild_id)
         if cached is None:
+            version = self._versions[guild_id]
             async with self.db.session() as session:
                 rows = await LevelRoleRepo(session).list(guild_id)
             cached = [Milestone(row.level, row.role_id) for row in rows]
-            self._milestones[guild_id] = cached
+            if self._versions[guild_id] == version:  # nothing changed while we were reading
+                self._milestones[guild_id] = cached
         return cached
+
+    def _changed(self, guild_id: int) -> None:
+        self._versions[guild_id] += 1
+        self._milestones.pop(guild_id, None)
 
     async def set_milestone(self, guild_id: int, level: int, role_id: int | None) -> None:
         async with self.db.session() as session:
             await LevelRoleRepo(session).set(guild_id, level, role_id)
-        self._milestones.pop(guild_id, None)
+        self._changed(guild_id)
 
     async def remove_milestone(self, guild_id: int, level: int) -> bool:
         async with self.db.session() as session:
             removed = await LevelRoleRepo(session).remove(guild_id, level)
-        self._milestones.pop(guild_id, None)
+        self._changed(guild_id)
         return removed
 
     # ------------------------------------------------------------------ syncing

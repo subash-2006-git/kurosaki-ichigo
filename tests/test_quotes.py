@@ -5,8 +5,18 @@ from types import SimpleNamespace
 import pytest
 from PIL import Image
 
-from features.quotes.cog import QuoteButton, QuotesDB, latest_message, parse_message_ref, quote_view
-from features.quotes.render import MAX_CHARS, QuoteStyle, clean_text, layout, render_quote, wrap
+from features.quotes.cog import (
+    ConversationButton,
+    QuoteButton,
+    QuotesDB,
+    conversation_view,
+    latest_message,
+    latest_messages,
+    messages_from,
+    parse_message_ref,
+    quote_view,
+)
+from features.quotes.render import MAX_CHARS, QuoteLine, QuoteStyle, clean_text, layout, palette, render_conversation, render_quote, wrap
 
 NAMES = dict(user=lambda i: {1: "Sam"}.get(i), role=lambda i: {2: "Mods"}.get(i), channel=lambda i: {3: "general"}.get(i))
 
@@ -20,7 +30,7 @@ def test_clean_text():
 
 
 def test_style_bits_round_trip():
-    for bits in range(8):
+    for bits in range(16):
         assert QuoteStyle.from_bits(bits).bits == bits
     assert QuoteStyle().toggled("flip") == QuoteStyle(flip=True)
     assert QuoteStyle(colour=True).toggled("colour") == QuoteStyle()
@@ -45,10 +55,12 @@ def test_render_returns_png(text):
 def test_buttons_carry_everything_in_their_id():
     view = quote_view(QuoteStyle(flip=True), 11, 22, 33)
     ids = [item.custom_id for item in view.children]
-    assert ids == ["quote:colour:2:11:22:33", "quote:flip:2:11:22:33", "quote:light:2:11:22:33", "quote:delete:2:11:22:33"]
+    assert ids == ["quote:colour:2:11:22:33", "quote:flip:2:11:22:33", "quote:light:2:11:22:33", "quote:tint:2:11:22:33",
+                   "quote:delete:2:11:22:33"]
     match = re.fullmatch(QuoteButton.__discord_ui_compiled_template__, ids[1])
     assert match["action"] == "flip" and match["bits"] == "2" and match["msg"] == "33"
-    assert all(len(i) <= 100 for i in [f"quote:delete:7:{10**19}:{10**19}:{10**19}"])
+    assert all(len(i) <= 100 for i in [f"quote:delete:15:{10**19}:{10**19}:{10**19}",
+                                        f"quotes:colour:15:{10**19}:{10**19}:{10**19}:5"])
 
 
 async def test_settings_default_on(core_db):
@@ -80,3 +92,48 @@ async def test_latest_message_skips_bots_and_empty():
     assert (await latest_message(Channel(), None)).content == "from three"
     assert (await latest_message(Channel(), SimpleNamespace(id=2))).content == "from two"
     assert await latest_message(Channel(), SimpleNamespace(id=9)) is None
+
+
+def test_conversation_buttons_and_render():
+    view = conversation_view(QuoteStyle(tint=True), 11, 22, 33, 3)
+    assert [i.custom_id for i in view.children] == [
+        "quotes:colour:8:11:22:33:3", "quotes:light:8:11:22:33:3", "quotes:tint:8:11:22:33:3", "quotes:delete:8:11:22:33:3"]
+    match = re.fullmatch(ConversationButton.__discord_ui_compiled_template__, "quotes:light:12:11:22:33:5")
+    assert match["n"] == "5" and match["bits"] == "12"
+    png = render_conversation([QuoteLine("Sam", "sam", "hi " * 80, None), QuoteLine("Lee", "lee", "🔥", None)],
+                              QuoteStyle(light=True, tint=True), accent=0x5865F2)
+    image = Image.open(io.BytesIO(png))
+    assert image.width == 1200 and 200 <= image.height <= 900
+
+
+def test_tint_changes_the_background_only_when_on():
+    assert palette(QuoteStyle(), 0xFF0000)[0] == (0, 0, 0, 255)
+    assert palette(QuoteStyle(tint=True), 0xFF0000)[0][0] > 0           # dark red shade
+    assert palette(QuoteStyle(light=True, tint=True), 0x0000FF)[0][2] == 255  # pale blue wash
+    assert palette(QuoteStyle(tint=True), None)[0] == (0, 0, 0, 255)     # no theme colour: plain
+
+
+async def test_latest_messages_and_messages_from():
+    def msg(i, content="text", bot=False):
+        return SimpleNamespace(id=i, author=SimpleNamespace(id=i % 3, bot=bot), content=content)
+
+    newest_first = [msg(5), msg(4, bot=True), msg(3, ""), msg(2), msg(1)]
+
+    class Channel:
+        async def history(self, limit, after=None, oldest_first=False):
+            items = list(reversed(newest_first)) if oldest_first else newest_first
+            for m in items:
+                if after is None or m.id > after.id:
+                    yield m
+
+    assert [m.id for m in await latest_messages(Channel(), None, 3)] == [1, 2, 5]   # oldest first
+    assert [m.id for m in await messages_from(Channel(), msg(1), 3)] == [1, 2, 5]
+    assert [m.id for m in await messages_from(Channel(), msg(2), 5)] == [2, 5]
+
+
+async def test_default_style_saved(core_db):
+    db = QuotesDB(core_db.pool)
+    assert await db.default_style(1) == QuoteStyle()
+    await db.set_default_style(1, QuoteStyle(colour=True, tint=True))
+    assert await QuotesDB(core_db.pool).default_style(1) == QuoteStyle(colour=True, tint=True)
+    assert await db.enabled(1)

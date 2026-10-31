@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from PIL import Image, ImageOps
 
-from features.community.services.cards import _draw_text, _runs, _width
+from features.community.services.cards import _circle_avatar, _draw_text, _runs, _width
 
 log = logging.getLogger(__name__)
 
@@ -29,14 +29,15 @@ class QuoteStyle:
     colour: bool = False  # avatar in colour (default: grayscale)
     flip: bool = False    # avatar on the right
     light: bool = False   # light background
+    tint: bool = False    # background tinted with the server's theme colour
 
     @property
     def bits(self) -> int:
-        return int(self.colour) | int(self.flip) << 1 | int(self.light) << 2
+        return int(self.colour) | int(self.flip) << 1 | int(self.light) << 2 | int(self.tint) << 3
 
     @classmethod
     def from_bits(cls, bits: int) -> QuoteStyle:
-        return cls(colour=bool(bits & 1), flip=bool(bits & 2), light=bool(bits & 4))
+        return cls(colour=bool(bits & 1), flip=bool(bits & 2), light=bool(bits & 4), tint=bool(bits & 8))
 
     def toggled(self, option: str) -> QuoteStyle:
         return QuoteStyle(**{**self.__dict__, option: not getattr(self, option)})
@@ -139,11 +140,24 @@ def _avatar(avatar_png: bytes | None, colour: bool) -> Image.Image:
     return image.convert("RGBA")
 
 
-def render_quote(text: str, display_name: str, username: str, avatar_png: bytes | None, style: QuoteStyle) -> bytes:
+def palette(style: QuoteStyle, accent: int | None) -> tuple[tuple[int, int, int, int], tuple[int, int, int], tuple[int, int, int]]:
+    """(background, main text, muted text). With `tint`, the background takes on the theme colour."""
+    if style.light:
+        background, main, muted = (245, 245, 245), (20, 20, 20), (95, 95, 95)
+    else:
+        background, main, muted = (0, 0, 0), (255, 255, 255), (160, 160, 160)
+    if style.tint and accent is not None:
+        r, g, b = (accent >> 16) & 255, (accent >> 8) & 255, accent & 255
+        mix = 0.82 if style.light else 0.22  # light: a pale wash of the colour; dark: a deep shade of it
+        background = tuple(int(c * mix + 255 * (1 - mix)) for c in (r, g, b)) if style.light else \
+            tuple(int(c * mix) for c in (r, g, b))
+    return (*background, 255), main, muted
+
+
+def render_quote(text: str, display_name: str, username: str, avatar_png: bytes | None, style: QuoteStyle,
+                 accent: int | None = None) -> bytes:
     width, height = SIZE
-    background = (245, 245, 245, 255) if style.light else (0, 0, 0, 255)
-    main = (20, 20, 20) if style.light else (255, 255, 255)
-    muted = (95, 95, 95) if style.light else (160, 160, 160)
+    background, main, muted = palette(style, accent)
     canvas = Image.new("RGBA", SIZE, background)
 
     avatar = _avatar(avatar_png, style.colour)
@@ -166,6 +180,64 @@ def render_quote(text: str, display_name: str, username: str, avatar_png: bytes 
     _draw_text(canvas, _runs(f"— {display_name}"[:60], "bold", name_size), name_size, centre, y, main, align="center")
     _draw_text(canvas, _runs(f"@{username}"[:40], "regular", user_size), user_size, centre, y + name_size + 8, muted,
                align="center")
+
+    out = io.BytesIO()
+    canvas.convert("RGB").save(out, format="PNG", optimize=True)
+    return out.getvalue()
+
+
+# ---- several messages on one image --------------------------------------------------
+
+CONVO_WIDTH = 1200
+CONVO_AVATAR = 72
+CONVO_TEXT = 30
+CONVO_NAME = 28
+CONVO_PAD = 48
+CONVO_GAP = 30
+CONVO_MAX_LINES = 6
+
+
+@dataclass(frozen=True)
+class QuoteLine:
+    display_name: str
+    username: str
+    text: str
+    avatar_png: bytes | None
+
+
+def render_conversation(lines: list[QuoteLine], style: QuoteStyle, accent: int | None = None) -> bytes:
+    """A few messages in a row, chat-style: round avatar, name, and wrapped text for each."""
+    background, main, muted = palette(style, accent)
+    text_left = CONVO_PAD + CONVO_AVATAR + 28
+    text_width = CONVO_WIDTH - text_left - CONVO_PAD
+    line_height = int(CONVO_TEXT * LINE_SPACING)
+
+    blocks = []
+    for line in lines:
+        wrapped = wrap(line.text or "…", CONVO_TEXT, text_width)
+        if len(wrapped) > CONVO_MAX_LINES:
+            wrapped = wrapped[:CONVO_MAX_LINES]
+            wrapped[-1] = wrapped[-1].rstrip() + "…"
+        body = CONVO_NAME + 14 + len(wrapped) * line_height
+        blocks.append((line, wrapped, max(CONVO_AVATAR, body)))
+    height = CONVO_PAD * 2 + sum(b[2] for b in blocks) + CONVO_GAP * (len(blocks) - 1)
+
+    canvas = Image.new("RGBA", (CONVO_WIDTH, max(height, 200)), background)
+    y = CONVO_PAD
+    for line, wrapped, block_height in blocks:
+        avatar = _circle_avatar(line.avatar_png, CONVO_AVATAR)
+        if not style.colour:
+            alpha = avatar.getchannel("A")
+            avatar = ImageOps.grayscale(avatar.convert("RGB")).convert("RGBA")
+            avatar.putalpha(alpha)
+        canvas.alpha_composite(avatar, (CONVO_PAD, y))
+        name = f"{line.display_name}"[:50]
+        _draw_text(canvas, _runs(name, "bold", CONVO_NAME), CONVO_NAME, text_left, y, main)
+        handle_x = text_left + _width(_runs(name, "bold", CONVO_NAME)) + 12
+        _draw_text(canvas, _runs(f"@{line.username}"[:40], "regular", 22), 22, handle_x, y + 4, muted)
+        for i, text in enumerate(wrapped):
+            _draw_text(canvas, _runs(text, "regular", CONVO_TEXT), CONVO_TEXT, text_left, y + CONVO_NAME + 14 + i * line_height, main)
+        y += block_height + CONVO_GAP
 
     out = io.BytesIO()
     canvas.convert("RGB").save(out, format="PNG", optimize=True)

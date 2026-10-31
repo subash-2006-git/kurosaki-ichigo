@@ -5,6 +5,8 @@ from types import SimpleNamespace
 import discord
 import pytest
 
+import features.community.services.roles as roles_module
+
 from features.community.models import RoleMode, XpSource
 from features.community.services.guild_config import GuildConfigService
 from features.community.services.leveling import AwardResult, LevelingService
@@ -363,3 +365,26 @@ async def test_freshly_created_role_tied_with_bot_role_is_assigned(roles):
     member = FakeMember(guild)
     result = await roles.sync_member(member, 10)
     assert result.problems == () and names(member) == ["Level 1"]
+
+
+async def test_stale_read_never_overwrites_a_newer_milestone(roles, monkeypatch):
+    """A read that started before a change must not put the old list back into the cache."""
+    await roles.set_milestone(GUILD_ID, 5, None)
+    real_list = roles_module.LevelRoleRepo.list
+    reading, release = asyncio.Event(), asyncio.Event()
+
+    async def slow_list(self, guild_id):
+        rows = await real_list(self, guild_id)  # the old rows: role not created yet
+        reading.set()
+        await release.wait()
+        return rows
+
+    monkeypatch.setattr(roles_module.LevelRoleRepo, "list", slow_list)
+    roles._milestones.clear()
+    stale_reader = asyncio.create_task(roles.milestones(GUILD_ID))
+    await reading.wait()
+    monkeypatch.setattr(roles_module.LevelRoleRepo, "list", real_list)
+    await roles.set_milestone(GUILD_ID, 5, 999)  # another sync created the role meanwhile
+    release.set()
+    assert [m.role_id for m in await stale_reader] == [None]  # that caller saw the old list...
+    assert [m.role_id for m in await roles.milestones(GUILD_ID)] == [999]  # ...but didn't cache it
