@@ -14,7 +14,7 @@ from discord.ext import commands
 
 from core import config, errors, migrate
 from core.db import Database
-from core.access import NOT_ALLOWED, is_allowed
+from core.access import NOT_ALLOWED, AccessStore, is_allowed
 from core.interactions import CoreTree
 from core.ui import theme
 from core.ui.theme import ThemeStore
@@ -89,13 +89,14 @@ class Bot(commands.Bot):
 
     async def _owner_only(self, ctx: commands.Context) -> bool:
         """Text (prefix) commands follow the same rule as slash commands."""
-        if not await is_allowed(self, ctx.author):
+        if not await is_allowed(self, ctx.author, ctx.guild):
             raise commands.NotOwner(NOT_ALLOWED)
         return True
 
     async def setup_hook(self) -> None:
         await self.db.connect()
         await migrate.run(self.db)
+        self.access = AccessStore(self.db.pool)
         self.theme = ThemeStore(self.db.pool)
         await self.theme.load()
         theme.activate(self.theme)

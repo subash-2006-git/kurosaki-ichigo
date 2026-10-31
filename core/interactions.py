@@ -48,7 +48,7 @@ def _extra(command: app_commands.Command | app_commands.Group, key: str, default
 
 class CoreTree(app_commands.CommandTree):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if not await is_allowed(interaction.client, interaction.user):
+        if not await is_allowed(interaction.client, interaction.user, interaction.guild):
             if interaction.type is discord.InteractionType.autocomplete:
                 await interaction.response.autocomplete([])
             else:

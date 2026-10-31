@@ -384,7 +384,7 @@ class Quotes(commands.Cog):
             return
         if f"<@{self.bot.user.id}>" not in message.content and f"<@!{self.bot.user.id}>" not in message.content:
             return
-        if not await is_allowed(self.bot, message.author):
+        if not await is_allowed(self.bot, message.author, message.guild):
             return
         target = message.reference.resolved
         if not isinstance(target, discord.Message):

@@ -8,8 +8,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from core.panel import appearance
-from core.panel.service import PanelEntry, PanelSection, PanelService
+from core.panel import access, appearance
+from core.panel.service import WHO_CAN_USE, PanelEntry, PanelSection, PanelService
 from core.ui import style
 
 if TYPE_CHECKING:
@@ -40,7 +40,7 @@ class Panel(commands.Cog):
         await interaction.followup.send(
             embed=style.ok(
                 f"Control panel posted in {target.mention}: {message.jump_url}\n"
-                "Only members with **Manage Server** can use it, and any older panel was removed."
+                f"{WHO_CAN_USE()} Any older panel was removed."
             ),
             ephemeral=True,
         )
@@ -56,6 +56,9 @@ async def setup(bot: Bot) -> None:
     bot.panel = PanelService(bot)
     bot.panel.add_check(bot_role_on_top)
     bot.add_dynamic_items(PanelEntry)
+    bot.panel.register(PanelSection(
+        key="access", label="Access", emoji="🔐", order=1, status=access.status, open=access.AccessEditor.open,
+    ))
     bot.panel.register(PanelSection(
         key="appearance", label="Appearance", emoji=style.PALETTE, order=90,
         status=appearance.status, open=appearance.AppearanceEditor.open,

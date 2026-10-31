@@ -15,6 +15,7 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 
 | Section | What you can change |
 |---|---|
+| 🔐 Access | the members (besides the server owner) who can use the bot's commands and this panel; only the server owner can change it |
 | 👋 Welcome & Goodbye | on/off, channel, embed or plain text, image card, card background (upload or link), link buttons, goodbye DM, **Edit message** (embed editor with live preview), **Preview** |
 | 📈 Leveling | on/off, level-up announcements and channel, level-up message and link buttons, message/voice XP rules, **XP boost events** (2–5× XP for a set time), **no-XP channels** (channels or whole categories), level roles and role mode |
 | 🏷️ Self roles | post the pronoun picker (several allowed) and the DM-status picker (open / closed / ask; one at a time), created on first use; pick up to 10 of your roles as **ping roles** and post that picker |
@@ -32,7 +33,7 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 
 - A **Getting started** checklist at the top shows what's left to set up (bot role at the top, logs, mod-log, anti-nuke with trusted admins, the ticket button) and shrinks to one line once everything is done.
 - Editors open **privately** (only you see them) and close after 10 minutes without use; every change applies instantly and updates the panel.
-- The panel's buttons keep working after restarts. Only the bot's owners can use them (see **Who can use the bot**). Running `/panel` again replaces the old panel.
+- The panel's buttons keep working after restarts. Only the server owner and the members they allow can use them (see **Who can use the bot**). Running `/panel` again replaces the old panel.
 - Welcome, goodbye and level-up messages are embeds you design in the editor. Placeholders like `{user}`, `{server}`, `{membercount_ordinal}`, `{avatar}` and `{level}` are filled in; the image card shows inside the embed; up to 5 link buttons (Rules, Website…) go underneath.
 - **Suggestions:** `/suggest` posts the idea in the suggestions channel with 👍/👎 buttons (press again to take a vote back) and **Accept**/**Deny** buttons for staff with Manage Messages, who can add a reason. The member gets a DM with the decision, and voting closes. One suggestion per member per minute.
 - **Birthdays:** members save a day and month (no year) with `/birthday set`. Each day, at the chosen hour in the server's time zone, the bot posts the message for that day's birthdays and gives the birthday role (taken back the next day). 29 February birthdays are celebrated on the 28th in other years.
@@ -78,7 +79,7 @@ Set up from the panel's 🎫 Tickets section, then post the ticket button in a p
 
 Most commands are slash commands; the voice commands are `!` text commands.
 
-**Who can use the bot:** with `OWNER_ONLY=true` (the default), only the bot's owners can use any command (slash, right-click Apps, `!` and replying-with-a-mention for quotes) or the control panel: the user IDs in `OWNER_IDS`, or the Discord application's owner/team when `OWNER_IDS` is empty. Everyone else gets "Only the bot's owners can use this bot's commands." Buttons members use aren't commands and keep working for everyone: opening tickets, self-role pickers, suggestion votes, ticket ratings, the quote restyle buttons, and level-up rank/leaderboard buttons; staff buttons (ticket claim/close, suggestion accept/deny, case History/Undo, report actions) keep their own permission checks. Discord can't hide slash commands from specific users, so members still see the commands in the `/` menu; they just can't run them. `OWNER_ONLY=false` goes back to permission-based access.
+**Who can use the bot:** with `OWNER_ONLY=true` (the default), in each server only the **server owner** and the **members they pick** in the panel's 🔐 Access section (up to 25) can use any command (slash, right-click Apps, `!` and replying-with-a-mention for quotes) or the control panel. The bot's operators (`OWNER_IDS`, or the Discord application's owner/team when it's empty) can use it in every server, and are the only ones who can in DMs. Only the server owner and the operators can change a server's list. Commands that need a Discord permission (ban, purge…) still need it too. Everyone else gets "Only the server owner and the members they allow can use this bot's commands." Buttons members use aren't commands and keep working for everyone: opening tickets, self-role pickers, suggestion votes, ticket ratings, the quote restyle buttons, and level-up rank/leaderboard buttons; staff buttons (ticket claim/close, suggestion accept/deny, case History/Undo, report actions) keep their own permission checks. Discord can't hide slash commands from specific users, so members still see the commands in the `/` menu; they just can't run them. `OWNER_ONLY=false` goes back to permission-based access.
 
 | Area | Commands |
 |---|---|
@@ -165,8 +166,8 @@ See [`.env.example`](.env.example). Only `DISCORD_TOKEN` and `DATABASE_URL` are 
 | `SYNC_COMMANDS` | `false` | sync global commands on startup (production) |
 | `PREFIX` | `!` | prefix for the text commands (the voice commands); mentioning the bot also works |
 | `CONFIG_COMMANDS` | `false` | `true` keeps the settings commands the panel replaces (`/config`, `/welcome`, `/goodbye`, `/setup`, most of `/leveling` and `/nick`) |
-| `OWNER_IDS` | — | the bot's owners: user IDs, comma-separated; empty = the app's owner or team |
-| `OWNER_ONLY` | `true` | only the owners can use commands and the control panel; `false` = anyone with the needed permissions |
+| `OWNER_IDS` | — | the bot's operators, who can use it in every server: user IDs, comma-separated; empty = the app's owner or team |
+| `OWNER_ONLY` | `true` | in each server only the server owner and the members they allow (🔐 Access) can use commands and the panel; `false` = anyone with the needed permissions |
 | `DATABASE_SSL` | `require` | `disable` only for a local Postgres without TLS |
 | `PORT` | `8080` | web server (Render sets this) |
 | `LOG_LEVEL` | `INFO` | |

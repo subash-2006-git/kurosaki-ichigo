@@ -23,7 +23,8 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 SECTION_KEY_CHARS = "abcdefghijklmnopqrstuvwxyz_"
-WHO_CAN_USE = lambda: ("Only the bot's owners can use these buttons." if config.OWNER_ONLY  # noqa: E731
+WHO_CAN_USE = lambda: ("Only the server owner and the members they allow (🔐 Access) can use these buttons."  # noqa: E731
+                       if config.OWNER_ONLY
                        else "Only members with **Manage Server** can use these buttons.")
 ROW_SIZE = 5  # buttons per row on the posted panel (Discord's maximum)
 
@@ -61,7 +62,7 @@ class PanelEntry(discord.ui.DynamicItem[discord.ui.Button], template=r"panel:(?P
     async def callback(self, interaction: discord.Interaction) -> None:
         member = interaction.user
         if config.OWNER_ONLY:
-            if not await is_allowed(interaction.client, member):
+            if not await is_allowed(interaction.client, member, interaction.guild):
                 await interaction.response.send_message(embed=style.fail(NOT_ALLOWED), ephemeral=True)
                 return
         elif not isinstance(member, discord.Member) or not member.guild_permissions.manage_guild:
