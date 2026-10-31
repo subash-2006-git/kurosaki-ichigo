@@ -29,6 +29,7 @@ EXTENSIONS: tuple[str, ...] = (
     "features.nickname",
     "features.community",
     "features.tickets",
+    "features.antinuke",
 )
 
 # A feature that can surface errors in a guild (the logging feature's custom-logs channel)

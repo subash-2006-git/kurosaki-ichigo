@@ -18,6 +18,7 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 | 👋 Welcome & Goodbye | on/off, channel, embed or plain text, image card, card background (upload or link), link buttons, goodbye DM, **Edit message** (embed editor with live preview), **Preview** |
 | 📈 Leveling | on/off, level-up announcements and channel, level-up message and link buttons, message/voice XP rules, level roles and role mode |
 | 🎫 Tickets | on/off, category for ticket channels, staff roles, transcripts channel, open tickets per member, ask for a reason, **Edit ticket message**, post the ticket button |
+| 🧨 Anti-nuke | on/off, punishment (remove roles / kick / ban), undo the damage, block untrusted bots, block dangerous permissions, trusted people and roles, alerts channel, limits |
 | 🛡️ Moderation | mod-log / reports / alerts channels, punishment DMs, appeal link, automod filters and limits, banned words, allowed links, exemptions, escalation rules, anti-raid, raid mode |
 | 📜 Server Logs | which log channels exist, create/repair log channels and stats counters, staff read access |
 | 🏷️ Nicknames | mode, template, rename bots, excluded roles/members, preview / rename / restore, job status |
@@ -29,6 +30,21 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 - Level-up messages carry **📊 My rank** and **🏆 Leaderboard** buttons; mod-log cases carry **📜 History** and **↩️ Undo**; punishment DMs carry an **Appeal** button. All of these keep working after restarts.
 
 All the slash commands below still work and change the same settings.
+
+### How anti-nuke works
+
+A "nuke" is a hacked admin account or a malicious bot wrecking a server in seconds: deleting channels and roles, mass-banning, spamming webhooks, or handing out Administrator. Anti-nuke is **off until you turn it on** in the panel.
+
+1. **Watches the audit log.** Every channel/role delete or create, ban, kick, webhook create, bot add and role permission change arrives with *who* did it.
+2. **Counts per person.** If one person does more than the limit within the time window (default: more than 3 channel or role deletes, bans, kicks or webhooks in 10 seconds; more than 5 channel or role creates), they're stopped.
+3. **Instant blocks.** A bot added by someone untrusted is kicked; a role given Administrator, Ban, Kick, Manage Server/Roles/Channels/Webhooks or Mention Everyone by someone untrusted is reverted.
+4. **Stops the attacker.** Removes all their roles (default), or kicks or bans them. Bots that misbehave are kicked.
+5. **Undoes the damage.** Recreates the channels and roles they deleted (name, category, position, permissions, topic, colour), deletes channels, roles and webhooks they created, and unbans who they banned.
+6. **Alerts** the alerts channel (or the moderation alerts / mod-log channel) and pings the owner.
+
+The server owner and the bot are always trusted. **Add your admins as trusted people or roles**, otherwise someone legitimately reorganising lots of channels can be stopped. Only the owner or an Administrator can change anti-nuke settings.
+
+**Limits (true for every anti-nuke bot):** Discord has no way to block an action before it happens, so actions are caught and reversed right after. Messages inside deleted channels can't be brought back. The bot can't stop anyone whose highest role is above its own (the panel warns when the bot's role isn't at the top) and can never stop the server owner. Restored roles aren't automatically re-given to the members who had them.
 
 ### Tickets
 
@@ -141,8 +157,8 @@ core/                shared by every feature
   web.py             / and /health
   cogs/system.py     /ping, /status, /sync
 features/
-  moderation/  logging/  nickname/  community/  tickets/     each: __init__.py (setup), cogs/, services or utils, db layer
-migrations/          0001_core … 0008_tickets (.sql)
+  moderation/  logging/  nickname/  community/  tickets/  antinuke/     each: __init__.py (setup), cogs/, services or utils, db layer
+migrations/          0001_core … 0009_antinuke (.sql)
 assets/fonts/        Noto fonts for the image cards
 tests/               pytest; tests/community uses an embedded Postgres
 PRIVACY.txt TERMS.txt

@@ -37,6 +37,11 @@ The bot stores only what its features need, keyed by Discord server (guild) ID a
     - Ticket messages themselves are not stored by the bot; when a ticket closes, a transcript file
       is posted to the server's chosen transcripts channel and sent to the member who opened it.
 
+  Anti-nuke
+    - Anti-nuke settings per server (limits, punishment, trusted people and roles, alerts channel).
+    - To undo damage, the names and settings of deleted channels and roles are kept in memory for
+      10 minutes. They are never saved to the database.
+
   Nicknames
     - Nickname settings per server (mode, template, excluded roles/members).
     - Each member's original nickname before the bot changed it, so it can be restored.

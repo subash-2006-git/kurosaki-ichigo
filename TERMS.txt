@@ -6,7 +6,7 @@ agree to these terms.
 
 1. THE SERVICE
 The bot provides moderation, server logging, statistics counters, leveling, welcome/goodbye
-messages, nickname management and an embed builder in Discord servers. It is
+messages, nickname management, tickets, anti-nuke protection and an embed builder in Discord servers. It is
 provided free of charge, "as is", without any guarantee of availability or uptime. Features may
 change or be removed at any time.
 
@@ -20,7 +20,7 @@ change or be removed at any time.
   - Do not try to disrupt, overload or exploit the bot.
 
 3. AUTOMATED ACTIONS
-Automod, anti-raid, warning escalation and bulk nickname changes act automatically based on each
+Automod, anti-raid, anti-nuke, warning escalation and bulk nickname changes act automatically based on each
 server's settings. The operator is not responsible for actions taken because of a server's
 configuration, and server staff should review automated actions.
 
