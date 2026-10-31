@@ -1,7 +1,7 @@
 -r requirements.txt
-pytest>=8
-pytest-asyncio>=0.23
+pytest>=9.2.0
+pytest-asyncio>=1.4.1
 # lint (settings in ruff.toml)
-ruff>=0.6
+ruff>=0.17.3
 # embedded Postgres for the community database tests
-pgserver>=0.1
+pgserver>=0.1.4
