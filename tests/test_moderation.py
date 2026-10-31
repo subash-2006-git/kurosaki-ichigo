@@ -9,7 +9,8 @@ from features.moderation.cogs.antiraid import AntiRaid
 from features.moderation.case_buttons import HistoryButton, UndoButton, case_view, history_lines
 from features.moderation.cogs.automod import AutoMod
 from features.moderation.panel import _number
-from features.moderation.utils.guild_cache import DEFAULT_AUTOMOD, GuildCache, _merge
+from features.moderation.db import ModerationDB
+from features.moderation.utils.guild_cache import DEFAULT_AUTOMOD, DEFAULT_RAID, GuildCache, _merge
 from features.moderation.utils.modlog import appeal_view, case_embed
 from features.moderation.utils.time import humanize, parse_duration
 
@@ -90,8 +91,16 @@ async def test_mass_mentions():
 
 
 class FakeConfigs:
-    def __init__(self, raidmode=False, min_age=0):
-        self.s = SimpleNamespace(raidmode_active=raidmode, raid={"min_account_age_days": min_age})
+    def __init__(self, raidmode=False, min_age=0, young="kick", auto_end=0, since=None):
+        raid = _merge(DEFAULT_RAID, {"min_account_age_days": min_age, "young_account_action": young,
+                                     "auto_end_minutes": auto_end})
+        self.s = SimpleNamespace(raidmode_active=raidmode, raidmode_since=since, raid=raid)
+        self.updates = []
+
+    async def update(self, guild_id, **fields):
+        self.updates.append(fields)
+        for key, value in fields.items():
+            setattr(self.s, key, value)
 
     async def get(self, guild_id):
         return self.s
@@ -119,6 +128,83 @@ async def test_join_filter_raid_mode():
 async def test_join_filter_account_age():
     assert await antiraid(min_age=7).turns_away(join(age_days=2))
     assert not await antiraid(min_age=7).turns_away(join(age_days=30))
+
+
+async def test_join_filter_lets_young_accounts_in_when_set_to_alert():
+    assert not await antiraid(min_age=7, young="alert").turns_away(join(age_days=2))
+
+
+async def test_young_account_alert_lets_them_in(monkeypatch):
+    cog = antiraid(min_age=7, young="alert")
+    cog.joins, cog.activating = {}, set()
+    alerts, kicks = [], []
+
+    async def alert(member, min_age):
+        alerts.append((member.id, min_age))
+
+    async def no_kick(*args, **kwargs):
+        kicks.append(args)
+
+    cog._alert_young = alert
+    monkeypatch.setattr("features.moderation.cogs.antiraid.kick", no_kick)
+    member = join(age_days=2)
+    cog.bot.mod_configs.s.raid["enabled"] = False
+    await cog.on_member_join(member)
+    assert alerts == [(5, 7)] and kicks == [] and cog._kicked == {}
+
+
+class FakeAntiRaidBot(SimpleNamespace):
+    async def refresh(self, guild):
+        self.refreshed.append(guild.id)
+
+
+async def test_raid_mode_ends_by_itself_after_the_chosen_time():
+    started = discord.utils.utcnow() - timedelta(minutes=31)
+    cog = antiraid(raidmode=True, auto_end=30, since=started)
+    guild = join().guild
+    cog.bot.guilds = [guild]
+    cog.bot.panel = FakeAntiRaidBot(refreshed=[])
+    ended = []
+
+    async def deactivate(g, moderator, *, why=None):
+        ended.append((g.id, why))
+
+    cog.deactivate = deactivate
+    await AntiRaid.auto_end.coro(cog)
+    assert ended == [(1, "Ended automatically after 30 minute(s).")]
+    assert cog.bot.panel.refreshed == [1]
+
+    ended.clear()
+    cog.bot.mod_configs.s.raidmode_since = discord.utils.utcnow() - timedelta(minutes=5)
+    await AntiRaid.auto_end.coro(cog)
+    assert ended == []  # not yet
+
+    cog.bot.mod_configs.s.raid["auto_end_minutes"] = 0
+    cog.bot.mod_configs.s.raidmode_since = started
+    await AntiRaid.auto_end.coro(cog)
+    assert ended == []  # off: stays on until someone turns it off
+
+
+async def test_raid_mode_from_before_auto_end_starts_counting_now():
+    cog = antiraid(raidmode=True, auto_end=30, since=None)
+    cog.bot.guilds = [join().guild]
+    await AntiRaid.auto_end.coro(cog)
+    assert cog.bot.mod_configs.s.raidmode_since is not None
+
+
+async def test_warnings_stop_counting_after_the_expiry(core_db):
+    db = ModerationDB(core_db.pool)
+    old = await db.create_case(1, 5, 9, "warn", "old")
+    await db.create_case(1, 5, 9, "warn", "new")
+    await core_db.pool.execute("UPDATE moderation.cases SET created_at = NOW() - INTERVAL '40 days' WHERE id = $1",
+                               old["id"])
+    assert await db.count_active_warns(1, 5) == 2  # no expiry set
+    await db.update_guild_config(1, warn_expiry_days=30)
+    assert await db.count_active_warns(1, 5) == 1
+    assert [w["reason"] for w in await db.get_active_warns(1, 5)] == ["new"]
+    assert await db.count_active_warns(2, 5) == 0  # other servers unaffected
+    await db.update_guild_config(1, warn_expiry_days=0)
+    assert await db.count_active_warns(1, 5) == 2  # turning it off brings them back
 
 
 async def test_join_filter_ignores_bots_and_missing_kick_permission():

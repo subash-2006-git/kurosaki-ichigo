@@ -33,6 +33,7 @@ FILTERS = [
     ("mentions", "Mass mentions", "Too many mentions in one message."),
 ]
 MAX_TIMEOUT_SECONDS = 28 * 86400
+YOUNG_ACTIONS = [("kick", "Kick them (they can rejoin when older)"), ("alert", "Let them in and alert the mods")]
 
 
 def _channel(guild: discord.Guild, channel_id: int | None) -> str:
@@ -136,7 +137,11 @@ class ModerationEditor(SectionEditor):
         rules = await self.bot.mod_db.list_thresholds(self.guild.id)
         lines = [f"At **{r['warn_count']}** warnings → **{r['action']}**"
                  + (f" for {humanize(r['duration_seconds'])}" if r["duration_seconds"] else "") for r in rules]
+        expiry = s.warn_expiry_days
         items: list[discord.ui.Item] = [
+            self.setting("Warnings stop counting after",
+                         f"{expiry} day(s). Older warnings stay in the history but don't count towards the rules."
+                         if expiry else "Never. Every active warning counts.", "Edit", self.edit_expiry),
             self.text("**Automatic punishments**\n-# Applied when a member reaches a number of active warnings.\n\n"
                       + ("\n".join(lines) if lines else "No rules yet.")),
         ]
@@ -157,9 +162,13 @@ class ModerationEditor(SectionEditor):
             self.toggle("Join-flood detection", raid["enabled"], self._flip_raid,
                         description="Turns raid mode on automatically when lots of accounts join at once."),
             self.setting("Join flood", f"{raid['joins']} joins within {raid['seconds']}s", "Edit", self.edit_flood),
-            self.setting("Minimum account age", f"{age} day(s): younger accounts are kicked" if age else "Off",
-                         "Edit", self.edit_age),
+            self.setting("Minimum account age", f"{age} day(s)" if age else "Off", "Edit", self.edit_age),
+            self.row(self.choice_select("When a younger account joins…", YOUNG_ACTIONS, raid["young_account_action"],
+                                        self.set_young_action)),
             discord.ui.Separator(),
+            self.setting("Raid mode ends by itself",
+                         f"After {raid['auto_end_minutes']} minute(s)" if raid["auto_end_minutes"] else "No, only when turned off",
+                         "Edit", self.edit_auto_end),
             self.toggle("🚨 Raid mode", s.raidmode_active, self.toggle_raidmode,
                         description="Locks every text channel and kicks anyone who joins. Asks before changing."),
         ]
@@ -339,6 +348,39 @@ class ModerationEditor(SectionEditor):
             Field("…within seconds", str(raid["seconds"]), max_length=3, required=True, description="1–300"),
         ], save))
 
+    async def set_young_action(self, interaction: discord.Interaction) -> None:
+        await self._update_raid(young_account_action=interaction.data["values"][0])
+        await self.rerender(interaction)
+
+    async def _update_raid(self, **changes) -> None:
+        raid = copy.deepcopy((await self.bot.mod_configs.get(self.guild.id)).raid)
+        raid.update(changes)
+        await self.bot.mod_configs.update(self.guild.id, raid=raid)
+
+    async def edit_auto_end(self, interaction: discord.Interaction) -> None:
+        raid = (await self.bot.mod_configs.get(self.guild.id)).raid
+
+        async def save(modal_interaction: discord.Interaction, values: list[str]) -> None:
+            await self._update_raid(auto_end_minutes=_number(values[0], "Minutes", 0, 1440))
+            await self.rerender(modal_interaction)
+
+        await interaction.response.send_modal(Form("Raid mode ends by itself", [
+            Field("After how many minutes?", str(raid["auto_end_minutes"]), max_length=4, required=True,
+                  description="0 keeps it on until someone turns it off. Up to 1440 (a day)."),
+        ], save))
+
+    async def edit_expiry(self, interaction: discord.Interaction) -> None:
+        s = await self.bot.mod_configs.get(self.guild.id)
+
+        async def save(modal_interaction: discord.Interaction, values: list[str]) -> None:
+            await self.bot.mod_configs.update(self.guild.id, warn_expiry_days=_number(values[0], "Days", 0, 365))
+            await self.rerender(modal_interaction)
+
+        await interaction.response.send_modal(Form("Warnings stop counting after", [
+            Field("Days", str(s.warn_expiry_days), max_length=3, required=True,
+                  description="0 means warnings never stop counting. Up to 365."),
+        ], save))
+
     async def edit_age(self, interaction: discord.Interaction) -> None:
         raid = (await self.bot.mod_configs.get(self.guild.id)).raid
 
@@ -350,7 +392,7 @@ class ModerationEditor(SectionEditor):
 
         await interaction.response.send_modal(Form("Minimum account age", [
             Field("Days", str(raid["min_account_age_days"]), max_length=3, required=True,
-                  description="Accounts younger than this are kicked when they join. 0 turns it off."),
+                  description="Accounts younger than this are kicked or reported when they join. 0 turns it off."),
         ], save))
 
     async def toggle_raidmode(self, interaction: discord.Interaction) -> None:

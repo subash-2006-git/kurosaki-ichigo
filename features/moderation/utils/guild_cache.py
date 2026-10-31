@@ -1,6 +1,7 @@
 import copy
 import re
 from dataclasses import dataclass, field
+from datetime import datetime
 
 DEFAULT_AUTOMOD = {
     "enabled": True,
@@ -19,6 +20,8 @@ DEFAULT_RAID = {
     "joins": 10,
     "seconds": 10,
     "min_account_age_days": 0,
+    "young_account_action": "kick",  # or "alert": let them in and tell the mods
+    "auto_end_minutes": 0,           # 0: raid mode stays on until someone turns it off
 }
 
 
@@ -41,7 +44,9 @@ class GuildSettings:
     alert_channel_id: int | None = None
     appeal_url: str | None = None
     dm_on_action: bool = True
+    warn_expiry_days: int = 0
     raidmode_active: bool = False
+    raidmode_since: datetime | None = None
     locked_channels: list[int] = field(default_factory=list)
     automod: dict = field(default_factory=lambda: copy.deepcopy(DEFAULT_AUTOMOD))
     raid: dict = field(default_factory=lambda: copy.deepcopy(DEFAULT_RAID))
@@ -88,7 +93,9 @@ class GuildCache:
             settings.alert_channel_id = row["alert_channel_id"]
             settings.appeal_url = row["appeal_url"]
             settings.dm_on_action = row["dm_on_action"]
+            settings.warn_expiry_days = row["warn_expiry_days"]
             settings.raidmode_active = row["raidmode_active"]
+            settings.raidmode_since = row["raidmode_since"]
             settings.locked_channels = list(row["locked_channels"] or [])
             settings.automod = _merge(DEFAULT_AUTOMOD, row["automod"])
             settings.raid = _merge(DEFAULT_RAID, row["raid"])

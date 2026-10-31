@@ -19,7 +19,17 @@ GUILD_CONFIG_COLUMNS = {
     "raid",
     "raidmode_active",
     "locked_channels",
+    "warn_expiry_days",
+    "raidmode_since",
 }
+
+# Active warnings for ($1 guild, $2 user) that haven't expired. Expired warnings stay active in the
+# history (and come back if the server turns expiry off); they just stop counting.
+_LIVE_WARNS = (
+    "c.guild_id = $1 AND c.user_id = $2 AND c.action = 'warn' AND c.active AND NOT EXISTS ("
+    "SELECT 1 FROM moderation.guild_config g WHERE g.guild_id = c.guild_id AND g.warn_expiry_days > 0 "
+    "AND c.created_at < NOW() - make_interval(days => g.warn_expiry_days))"
+)
 
 
 class ModerationDB:
@@ -91,14 +101,13 @@ class ModerationDB:
 
     async def get_active_warns(self, guild_id: int, user_id: int) -> list[asyncpg.Record]:
         return await self.pool.fetch(
-            "SELECT * FROM moderation.cases WHERE guild_id = $1 AND user_id = $2 AND action = 'warn' AND active "
-            "ORDER BY case_num",
+            f"SELECT * FROM moderation.cases c WHERE {_LIVE_WARNS} ORDER BY case_num",
             guild_id, user_id,
         )
 
     async def count_active_warns(self, guild_id: int, user_id: int) -> int:
         return await self.pool.fetchval(
-            "SELECT COUNT(*) FROM moderation.cases WHERE guild_id = $1 AND user_id = $2 AND action = 'warn' AND active",
+            f"SELECT COUNT(*) FROM moderation.cases c WHERE {_LIVE_WARNS}",
             guild_id, user_id,
         )
 

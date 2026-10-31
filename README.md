@@ -22,7 +22,7 @@ Run **`/panel`** once in a staff channel (needs Manage Server). It posts a perma
 | 💬 Quote images | on/off, and the default look of new quotes (colour or grey avatar, side, light/dark, tinted with your theme colour) |
 | 🎫 Tickets | on/off, category for ticket channels, staff roles, transcripts channel, open tickets per member, ask for a reason, **Edit ticket message**, post the ticket button |
 | 🧨 Anti-nuke | on/off, punishment (remove roles / kick / ban), undo the damage, block untrusted bots, block dangerous permissions, trusted people and roles, alerts channel, limits |
-| 🛡️ Moderation | mod-log / reports / alerts channels, punishment DMs, appeal link, automod filters and limits, banned words, allowed links, exemptions, escalation rules, anti-raid, raid mode |
+| 🛡️ Moderation | mod-log / reports / alerts channels, punishment DMs, appeal link, automod filters and limits, banned words, allowed links, exemptions, escalation rules and how long warnings count, anti-raid (join floods, young accounts: kick or alert), raid mode and its automatic end |
 | 📜 Server Logs | which log channels exist, create/repair log channels and stats counters, staff read access |
 | 🏷️ Nicknames | mode, template, rename bots, excluded roles/members, preview / rename / restore, job status |
 | 🎨 Appearance | the server's theme colour and footer, used by the bot's messages |
